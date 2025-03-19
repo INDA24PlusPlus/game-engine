@@ -1,9 +1,9 @@
 #ifndef _GAME_H
 #define _GAME_H
 
-#include "arena.h"
-#include "renderer.h"
-#include "platform.h"
+#include "engine/arena.h"
+#include "engine/renderer.h"
+#include "engine/platform.h"
 
 namespace game {
 
@@ -17,7 +17,7 @@ struct State {
 
 void start(State& state, platform::WindowInfo window_info);
 void shutdown(State& state);
-void update(State& state, f32 delta_time);
+b32 update(State& state, f32 delta_time);
 }
 
 #endif

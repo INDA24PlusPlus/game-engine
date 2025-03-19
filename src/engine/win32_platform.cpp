@@ -7,6 +7,26 @@
 
 namespace platform {
 
+
+b32 next_os_event(WindowInfo info, OSEvent* e) {
+    MSG msg = {};
+    e->kind = platform::OSEvent::Kind::none;
+    SetWindowLongPtr((HWND)info.surface_handle, GWLP_USERDATA, (LONG_PTR)e);
+
+    // Loop until we have an event we want to pass onto the game.
+    while (e->kind == platform::OSEvent::Kind::none) {
+        if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+            continue;
+        }
+
+        return 0;
+    }
+
+    return 1;
+}
+
 // FIXME: https://learn.microsoft.com/en-us/windows/win32/hidpi/high-dpi-desktop-application-development-on-windows
 // This is hard, so I will do the bare minimum for now.
 void get_framebuffer_size(WindowInfo window_info, u32* width, u32* height) {

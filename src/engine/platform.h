@@ -16,6 +16,19 @@ struct OSHandle {
     void* handle;
 };
 
+struct OSEvent {
+    enum class Kind {
+        user_quit_request,
+        key_down,
+        key_up,
+        none,
+    };
+
+    Kind kind;
+};
+
+b32 next_os_event(WindowInfo info, OSEvent* e);
+
 // TODO: Better error reporting, Add user specified flags (Read, Write, Execute)./
 [[nodiscard]] OSHandle open_file(const char* path);
 void close_file(OSHandle handle);

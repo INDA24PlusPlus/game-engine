@@ -4,7 +4,9 @@
 #include <windows.h>
 
 #include "platform.h"
-#include "game.h"
+
+// TEMP
+#include "game/game.h"
 
 static std::string get_last_error() {
     auto error_code = GetLastError();
@@ -34,8 +36,24 @@ static std::string get_last_error() {
 }
 
 LRESULT WINAPI window_proc(HWND window, UINT msg, WPARAM w_param, LPARAM l_param) {
-    if (msg == WM_DESTROY) {
-        PostQuitMessage(0);
+    auto e = (platform::OSEvent*)GetWindowLongPtr(window, GWLP_USERDATA);
+
+    // FIXME: I do not like this..
+    // Windows sends us messages before we get to set the user pointer.
+    if (e != nullptr) {
+        switch (msg) {
+            case WM_DESTROY: {
+                e->kind = platform::OSEvent::Kind::user_quit_request;
+                PostQuitMessage(0);
+                break;
+            }
+            case WM_INPUT: {
+                u32 dwSize;
+                GetRawInputData((HRAWINPUT)l_param, RID_INPUT, nullptr, &dwSize, sizeof(RAWINPUTHEADER));
+                e->kind = platform::OSEvent::Kind::key_down;
+                break;
+            }
+        }
     }
 
     return DefWindowProcW(window, msg, w_param, l_param);
@@ -74,6 +92,19 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, PWSTR cmd_line,
         platform::fatal(std::format("Failed to create window class with error: {}", get_last_error()));
     }
 
+    // Register raw input events.
+    RAWINPUTDEVICE Rid[1];
+    Rid[0] = {
+        .usUsagePage = 0x01,      // HID_USAGE_PAGE_GENERIC
+        .usUsage = 0x06,          // HID_USAGE_GENERIC_KEYBOARD
+        .dwFlags = RIDEV_NOLEGACY, // adds keyboard and also ignores legacy keyboard messages
+        .hwndTarget = window,
+    };
+
+    if (RegisterRawInputDevices(Rid, 1, sizeof(RAWINPUTDEVICE)) == FALSE) {
+        platform::fatal("Failed to register raw input device for user keyboard. TODO: Fallback to using legacy keyboard messages");
+    }
+
     platform::WindowInfo window_info = {
         .window_handle = instance,
         .surface_handle = window,
@@ -92,20 +123,15 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, PWSTR cmd_line,
     QueryPerformanceCounter((LARGE_INTEGER*)&timer_now);
     u64 timer_prev = timer_now;
 
-    MSG msg = {};
-    while (msg.message != WM_QUIT) {
-        if (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-            continue;
-        }
-
+    while (true) {
         QueryPerformanceCounter((LARGE_INTEGER*)&timer_now);
         u64 delta_ticks = timer_now - timer_prev;
         timer_prev = timer_now;
 
         f32 delta_time = (f32)delta_ticks / (f32)timer_frequency;
-        game::update(game_state, delta_time);
+        if (!game::update(game_state, delta_time)) {
+            break;
+        }
     }
 
     game::shutdown(game_state);

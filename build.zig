@@ -1,14 +1,17 @@
 const std = @import("std");
 
 const engine_source_files = [_][]const u8{
-    "src/renderer.cpp",
-    "src/game.cpp",
+    "src/engine/renderer.cpp",
+};
+
+const game_source_files = [_][]const u8{
+    "src/game/game.cpp",
 };
 
 const win32_sources = [_][]const u8{
-    "src/win32_main.cpp",
-    "src/win32_platform.cpp",
-} ++ engine_source_files;
+    "src/engine/win32_main.cpp",
+    "src/engine/win32_platform.cpp",
+} ++ engine_source_files ++ game_source_files;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -21,6 +24,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.addIncludePath(b.path("src"));
 
     // Vulkan headers (vulkan.h, etc)
     {

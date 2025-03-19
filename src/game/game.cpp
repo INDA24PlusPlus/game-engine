@@ -1,5 +1,7 @@
 #include "game.h"
 
+#include <print>
+
 namespace game {
 
 void start(State& state, platform::WindowInfo window_info) {
@@ -17,7 +19,23 @@ void shutdown(State& state) {
     renderer::destroy_context(state.renderer_context);
 }
 
-void update(State& state, f32 delta_time) {
+b32 update(State& state, f32 delta_time) {
+    // Process events.
+    platform::OSEvent event;
+    while (platform::next_os_event(state.window_info, &event)) {
+        switch (event.kind) {
+            case platform::OSEvent::Kind::user_quit_request: {
+                return 0;
+            } break;
+            case platform::OSEvent::Kind::key_down: {
+                std::println("here");
+            } break;
+            case platform::OSEvent::Kind::key_up: {
+            } break;
+            default: {}
+        }
+    }
+
     state.delta_time = delta_time;
     state.curr_time += delta_time;
 
@@ -32,6 +50,8 @@ void update(State& state, f32 delta_time) {
             renderer::resize_swapchain(state.renderer_context, width, height);
         }
     }
+
+    return 1;
 }
 
 }
