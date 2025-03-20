@@ -847,7 +847,6 @@ const char* vk_result_to_string(VkResult result) {
 // TEMP stuff for now.
 struct Vertex {
     f32 position[3];
-    f32 color[3];
 };
 
 
@@ -886,47 +885,47 @@ static VkShaderModule load_shader_module(Context* context, const char* path) {
 }
 
 constexpr std::array<Vertex, 36> vertices = {
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f, -0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f,  0.5f, -0.5f } },
+        Vertex { {  0.5f,  0.5f, -0.5f } },
+        Vertex { { -0.5f,  0.5f, -0.5f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
 
-        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f,  0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f,  0.5f } },
+        Vertex { {  0.5f, -0.5f,  0.5f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
+        Vertex { { -0.5f,  0.5f,  0.5f } },
+        Vertex { { -0.5f, -0.5f,  0.5f } },
 
-        Vertex { { -0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f,  0.5f } },
+        Vertex { { -0.5f,  0.5f, -0.5f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
+        Vertex { { -0.5f, -0.5f,  0.5f } },
+        Vertex { { -0.5f,  0.5f,  0.5f } },
 
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
+        Vertex { {  0.5f,  0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f,  0.5f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
 
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f, -0.5f } },
+        Vertex { {  0.5f, -0.5f,  0.5f } },
+        Vertex { {  0.5f, -0.5f,  0.5f } },
+        Vertex { { -0.5f, -0.5f,  0.5f } },
+        Vertex { { -0.5f, -0.5f, -0.5f } },
 
-        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
-        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } }
+        Vertex { { -0.5f,  0.5f, -0.5f } },
+        Vertex { {  0.5f,  0.5f, -0.5f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
+        Vertex { {  0.5f,  0.5f,  0.5f } },
+        Vertex { { -0.5f,  0.5f,  0.5f } },
+        Vertex { { -0.5f,  0.5f, -0.5f } }
 };
 
 // From vulkan samples.
@@ -960,9 +959,9 @@ static void create_pipeline(Context* context) {
     };
 
     // Define the vertex input attribute descriptions
-    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions = {{
+    std::array<VkVertexInputAttributeDescription, 1> attribute_descriptions = {{
         {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)},
-        {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
+        //{.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
     }};
 
     // Create the vertex input state

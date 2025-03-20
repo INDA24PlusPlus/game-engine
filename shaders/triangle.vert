@@ -1,7 +1,6 @@
 #version 450
 
 layout(location = 0) in vec3 a_pos;
-layout(location = 1) in vec3 a_color;
 
 layout(location = 0) out vec3 v_color;
 
@@ -13,5 +12,5 @@ layout (push_constant) uniform per_mesh {
 
 void main() {
     gl_Position = PerMesh.projection * PerMesh.view * PerMesh.model * vec4(a_pos, 1.0);
-    v_color = a_color;
+    v_color = vec3(1.0f, 0.0f, 0.0f);
 }
