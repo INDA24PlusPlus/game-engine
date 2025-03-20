@@ -4,12 +4,17 @@
 #include "engine/arena.h"
 #include "engine/renderer.h"
 #include "engine/platform.h"
+#include "engine/camera.h"
+#include "engine/keyboard.h"
 
 namespace game {
 
 struct State {
     renderer::Context* renderer_context;
     platform::WindowInfo window_info;
+
+    engine::Camera camera;
+    engine::Keyboard kb;
 
     f32 delta_time;
     f32 curr_time;

@@ -1,11 +1,24 @@
 #include "renderer.h"
 
+// Stuff we know till need device memory allocations
+// - Vertex buffer
+// - Depth buffer
+
+// To keep in mind
+// - When we want to do shadow mapping add read bit to the memory barrier for the depth attachment.
+// - Might have to change load/store op for the color attachment when switching to a HDR color buffer
+
 #include <format>
 #include <optional>
 
 // FIXME: Don't use print here. I do this for now to make sure
 // this file has proper log messages, but we don't actually have a logging system right now.
 #include <print>
+
+#include "core.h"
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -72,6 +85,11 @@ struct TriangleRenderState{
 
     VkCommandPool pools[max_frames_in_flight];
     VkCommandBuffer cmd_bufs[max_frames_in_flight];
+
+    VkImage depth_image;
+    VkDeviceMemory depth_image_memory;
+    VkImageView depth_image_view;
+    VkFormat depth_format;
 };
 
 struct Context {
@@ -105,9 +123,11 @@ static void swapchain_deinit(Context* context);
 static void destroy_temp_state(Context* context);
 static void wait_for_swap_image_fences(Context* context);
 static bool check_validation_support(Context* context);
-static void render_triangle(Context* context, f32 curr_time);
+static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matrix);
 static void destroy_command_pools(Context* context);
 static void create_command_pool_and_buffers(Context* context);
+static void destroy_depth_resources(Context* context);
+static void create_depth_resources(Context* context);
 
 #ifdef _WIN32
 const char* instance_extensions[] = {
@@ -237,15 +257,19 @@ void resize_swapchain(Context* context, u32 width, u32 height) {
     auto swapchain = &context->swapchain;
     swapchain_deinit_resources(context);
     swapchain_init(context, { .width = width, .height = height}, swapchain->handle, swapchain->surface_format, swapchain->present_mode, swapchain->frames_in_flight);
+
+    destroy_depth_resources(context);
+    create_depth_resources(context);
+
     destroy_command_pools(context);
     create_command_pool_and_buffers(context);
 }
 
-PresentState present(Context* context, f32 curr_time) {
+PresentState present(Context* context, f32 curr_time, glm::mat4 view_matrix) {
     auto swapchain = &context->swapchain;
 
     // Record commands for the current frame.
-    render_triangle(context, curr_time);
+    render_triangle(context, curr_time, view_matrix);
 
     // Wait for the current frame to finish rendering.
     auto current = swapchain->images[swapchain->image_index];
@@ -822,7 +846,7 @@ const char* vk_result_to_string(VkResult result) {
 
 // TEMP stuff for now.
 struct Vertex {
-    f32 position[2];
+    f32 position[3];
     f32 color[3];
 };
 
@@ -842,7 +866,11 @@ static VkShaderModule load_shader_module(Context* context, const char* path) {
 
     // Vulkan requires the SPIR-V to be 4-byte aligned.
     auto code = arena_alloc_aligned<u8>(&context->scratch, file_size, alignof(u32));
-    assert(platform::read_from_file(file, code) == file_size);
+
+    auto size = platform::read_from_file(file, code);
+    if (size != file_size) {
+        platform::fatal("Failed to read entire SPIRV binary file");
+    }
 
     VkShaderModuleCreateInfo module_info = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -857,10 +885,48 @@ static VkShaderModule load_shader_module(Context* context, const char* path) {
     return shader_module;
 }
 
-constexpr std::array<Vertex, 3> vertices = {
-    Vertex { {   +0, -0.5 }, { 1, 0, 0 } },
-    Vertex { { +0.5, +0.5 }, { 0, 1, 0 } },
-    Vertex { { -0.5, +0.5 }, { 1, 0, 1 } },
+constexpr std::array<Vertex, 36> vertices = {
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f, -0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 0.0f, 1.0f } },
+
+        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f,  0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+
+        Vertex { { -0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f, -0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f, -0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+
+        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f, -0.5f },  { 1.0f, 1.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { {  0.5f,  0.5f,  0.5f },  { 1.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f,  0.5f },  { 0.0f, 0.0f, 1.0f } },
+        Vertex { { -0.5f,  0.5f, -0.5f },  { 0.0f, 1.0f, 1.0f } }
 };
 
 // From vulkan samples.
@@ -887,7 +953,7 @@ static void create_pipeline(Context* context) {
     VK_CHECK(vkCreatePipelineLayout(context->device, &layout_info, nullptr, &state->pipeline_layout));
 
     // Define the vertex input binding description
-    VkVertexInputBindingDescription binding_description{
+    VkVertexInputBindingDescription binding_description = {
         .binding   = 0,
         .stride    = sizeof(Vertex),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
@@ -895,12 +961,12 @@ static void create_pipeline(Context* context) {
 
     // Define the vertex input attribute descriptions
     std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions = {{
-        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, position)},
+        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)},
         {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
     }};
 
     // Create the vertex input state
-    VkPipelineVertexInputStateCreateInfo vertex_input {
+    VkPipelineVertexInputStateCreateInfo vertex_input = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount   = 1,
         .pVertexBindingDescriptions      = &binding_description,
@@ -909,14 +975,14 @@ static void create_pipeline(Context* context) {
     };
 
     // Specify we will use triangle lists to draw geometry.
-    VkPipelineInputAssemblyStateCreateInfo input_assembly{
+    VkPipelineInputAssemblyStateCreateInfo input_assembly = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .primitiveRestartEnable = VK_FALSE
     };
 
     // Specify rasterization state.
-    VkPipelineRasterizationStateCreateInfo raster{
+    VkPipelineRasterizationStateCreateInfo raster = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
@@ -935,34 +1001,48 @@ static void create_pipeline(Context* context) {
     };
 
     // Our attachment will write to all color channels, but no blending is enabled.
-    VkPipelineColorBlendAttachmentState blend_attachment{
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    VkPipelineColorBlendAttachmentState blend_attachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+    };
 
-    VkPipelineColorBlendStateCreateInfo blend{
+    VkPipelineColorBlendStateCreateInfo blend = {
         .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .attachmentCount = 1,
-        .pAttachments    = &blend_attachment};
+        .pAttachments    = &blend_attachment
+    };
 
     // We will have one viewport and scissor box.
-    VkPipelineViewportStateCreateInfo viewport{
+    VkPipelineViewportStateCreateInfo viewport = {
         .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
-        .scissorCount  = 1};
+        .scissorCount  = 1
+    };
 
-    // Disable all depth testing.
-    VkPipelineDepthStencilStateCreateInfo depth_stencil{
+    VkCompareOp current_compare_op = VK_COMPARE_OP_GREATER_OR_EQUAL;
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {
         .sType          = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthCompareOp = VK_COMPARE_OP_ALWAYS};
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = current_compare_op,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 1.0f,
+        .maxDepthBounds = 0.0f,
+    };
 
     // No multisampling.
     VkPipelineMultisampleStateCreateInfo multisample{
         .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
+    };
 
     VkPipelineDynamicStateCreateInfo dynamic_state_info{
         .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
-        .pDynamicStates    = dynamic_states.data()};
+        .pDynamicStates    = dynamic_states.data()
+    };
 
     // Load our SPIR-V shaders.
     std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {{
@@ -982,9 +1062,10 @@ static void create_pipeline(Context* context) {
 
     // Pipeline rendering info (for dynamic rendering).
     VkPipelineRenderingCreateInfo pipeline_rendering_info{
-        .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-        .colorAttachmentCount    = 1,
-        .pColorAttachmentFormats = &context->swapchain.surface_format.format
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &context->swapchain.surface_format.format,
+        .depthAttachmentFormat = context->state.depth_format,
     };
 
     // Create the graphics pipeline.
@@ -1096,9 +1177,9 @@ static void create_vertex_buffer(Context* context) {
         void* data_ptr;
         VK_CHECK(vkMapMemory(context->device, staging_mem, 0, VK_WHOLE_SIZE, 0, &data_ptr));
         Vertex* gpu_vertices = (Vertex*)data_ptr;
-        gpu_vertices[0] = vertices[0];
-        gpu_vertices[1] = vertices[1];
-        gpu_vertices[2] = vertices[2];
+        for (u32 i = 0; i < vertices.size(); ++i) {
+            gpu_vertices[i] = vertices[i];
+        }
         vkUnmapMemory(context->device, staging_mem);
     }
     copy_buffer(context, context->state.vertex_buffer, staging_buffer, sizeof(Vertex) * vertices.size());
@@ -1115,6 +1196,7 @@ static void transition_image_layout(
     VkPipelineStageFlags2 srcStage,
     VkPipelineStageFlags2 dstStage)
 {
+    bool is_depth_attachment = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     // Initialize the VkImageMemoryBarrier2 structure
     VkImageMemoryBarrier2 image_barrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
@@ -1138,7 +1220,7 @@ static void transition_image_layout(
 
         // Define the subresource range (which parts of the image are affected)
         .subresourceRange = {
-            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,        // Affects the color aspect of the image
+            .aspectMask     = is_depth_attachment ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel   = 0,                                // Start at mip level 0
             .levelCount     = 1,                                // Number of mip levels affected
             .baseArrayLayer = 0,                                // Start at array layer 0
@@ -1182,7 +1264,7 @@ static void destroy_command_pools(Context* context) {
     }
 }
 
-static void render_triangle(Context* context, f32 curr_time) {
+static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matrix) {
     u32 current_image_index = context->swapchain.image_index;
     auto cmd = context->state.cmd_bufs[current_image_index];
 
@@ -1195,8 +1277,8 @@ static void render_triangle(Context* context, f32 curr_time) {
         .y = 0,
         .width = (f32)context->swapchain.extent.width,
         .height = (f32)context->swapchain.extent.height,
-        .minDepth = 0,
-        .maxDepth = 1,
+        .minDepth = 1.0f,
+        .maxDepth = 0.0f,
     };
 
     VkRect2D scissor = {
@@ -1206,6 +1288,7 @@ static void render_triangle(Context* context, f32 curr_time) {
 
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
     };
     VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
 
@@ -1220,6 +1303,17 @@ static void render_triangle(Context* context, f32 curr_time) {
         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT        // dstStage
     );
 
+    transition_image_layout(
+        cmd,
+        context->state.depth_image,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        0,                                                     // srcAccessMask (no need to wait for previous operations)
+        VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT,        // dstAccessMask
+        VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,                   // srcStage
+        VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT          // dstStage
+    );
+
     // Set up the rendering attachment info
     VkRenderingAttachmentInfo color_attachment{
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -1228,6 +1322,16 @@ static void render_triangle(Context* context, f32 curr_time) {
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue = clear_value,
+    };
+
+    // Depth attachment
+    VkRenderingAttachmentInfo depth_attachment = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = context->state.depth_image_view,
+        .imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = { .depthStencil = { .depth = 0.0f } },
     };
 
     // Begin rendering
@@ -1242,7 +1346,8 @@ static void render_triangle(Context* context, f32 curr_time) {
         },
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &color_attachment
+        .pColorAttachments = &color_attachment,
+        .pDepthAttachment  = &depth_attachment,
     };
 
     vkCmdBeginRendering(cmd, &rendering_info);
@@ -1251,9 +1356,13 @@ static void render_triangle(Context* context, f32 curr_time) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.pipeline);
 
     // Set push constants.
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f), (f32)context->swapchain.extent.width / (f32)context->swapchain.extent.height, 0.1f, 100.0f);
+    proj[1][1] *= -1;
+
     PushConstants pc = {
         .model = glm::translate(glm::rotate(glm::mat4(1.0f), curr_time, glm::vec3(0.0f, 0.0f, 1.0f)), glm::vec3(0.0f, 0.0f, -1.0f)),
-        .projection = glm::perspective(glm::radians(90.0f), 1920.0f / 1080.0f, 0.1f, 100.0f),
+        .view = view_matrix,
+        .projection = proj,
     };
     vkCmdPushConstants(cmd, context->state.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pc);
 
@@ -1302,7 +1411,62 @@ static void render_triangle(Context* context, f32 curr_time) {
     VK_CHECK(vkEndCommandBuffer(cmd));
 }
 
+static void create_depth_resources(Context* context) {
+    context->state.depth_format = VK_FORMAT_D32_SFLOAT;
+    VkImageCreateInfo image_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = 0,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_D32_SFLOAT,
+        .extent = {
+            .width = context->swapchain.extent.width,
+            .height = context->swapchain.extent.height,
+            .depth = 1,
+        },
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+    VK_CHECK(vkCreateImage(context->device, &image_create_info, nullptr, &context->state.depth_image));
+
+
+    VkMemoryRequirements req;
+    vkGetImageMemoryRequirements(context->device, context->state.depth_image, &req);
+
+    context->state.depth_image_memory = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VK_CHECK(vkBindImageMemory(context->device, context->state.depth_image, context->state.depth_image_memory, 0));
+
+    VkImageViewCreateInfo view_create_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+        .flags = 0,
+        .image = context->state.depth_image,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D,
+        .format = image_create_info.format,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        },
+    };
+    VK_CHECK(vkCreateImageView(context->device, &view_create_info, nullptr, &context->state.depth_image_view));
+}
+
+static void destroy_depth_resources(Context* context) {
+    vkDestroyImageView(context->device, context->state.depth_image_view, nullptr);
+    vkFreeMemory(context->device, context->state.depth_image_memory, nullptr);
+    vkDestroyImage(context->device, context->state.depth_image, nullptr);
+}
+
 void create_state_for_triangle(Context* context) {
+    create_depth_resources(context);
+    std::println("Created depth buffer");
+
     create_pipeline(context);
     std::println("Created pipeline");
 
@@ -1311,13 +1475,23 @@ void create_state_for_triangle(Context* context) {
 
     create_vertex_buffer(context);
     std::println("Created and uploaded vertex buffer");
+
 }
 
 static void destroy_temp_state(Context* context) {
     std::println("Destroying temp state");
+
+    // Depth buffer.
+    destroy_depth_resources(context);
+
+    // Vertex buffer
     vkDestroyBuffer(context->device, context->state.vertex_buffer, nullptr);
     vkFreeMemory(context->device, context->state.vertex_buffer_mem, nullptr);
+
+    // Command pools
     destroy_command_pools(context);
+
+    // Pipeline
     vkDestroyPipeline(context->device, context->state.pipeline, nullptr);
     vkDestroyPipelineLayout(context->device, context->state.pipeline_layout, nullptr);
     std::println("Destroyed temp state");

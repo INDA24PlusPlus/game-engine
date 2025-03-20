@@ -3,8 +3,12 @@
 
 #include <utility>
 
-#include <utility>
-#define assert(cond) do { if (!(cond)) __builtin_trap(); } while(0)
+#define assert(cond)      \
+do {                      \
+    if (!(cond))          \
+        __builtin_trap(); \
+} while(0)
+
 #define KB(n) (((uint64_t)(n)) << 10)
 #define MB(n) (((uint64_t)(n)) << 20)
 

@@ -53,6 +53,24 @@ pub fn build(b: *std.Build) void {
         exe.addIncludePath(glm_dep.path(""));
     }
 
+    //imGUI
+    {
+        const imgui_dep = b.dependency("imgui", .{});
+        const imgui_source_files = [_][]const u8{
+            "imgui.cpp",
+            "imgui_demo.cpp",
+            "imgui_draw.cpp",
+            "imgui_tables.cpp",
+            "imgui_widgets.cpp",
+            "backends/imgui_impl_vulkan.cpp",
+        };
+        exe.addIncludePath(imgui_dep.path(""));
+        exe.addIncludePath(imgui_dep.path("backends"));
+        for (&imgui_source_files) |src| {
+            exe.addCSourceFile(.{ .file = imgui_dep.path(src), .flags = &.{"-DIMGUI_IMPL_VULKAN_USE_VOLK"} });
+        }
+    }
+
     exe.linkLibCpp();
     exe.addCSourceFiles(.{
         .files = &win32_sources,

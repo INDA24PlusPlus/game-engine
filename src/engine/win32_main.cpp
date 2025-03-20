@@ -47,10 +47,30 @@ LRESULT WINAPI window_proc(HWND window, UINT msg, WPARAM w_param, LPARAM l_param
                 PostQuitMessage(0);
                 break;
             }
+            // FIXME: Make this more robust.
             case WM_INPUT: {
-                u32 dwSize;
-                GetRawInputData((HRAWINPUT)l_param, RID_INPUT, nullptr, &dwSize, sizeof(RAWINPUTHEADER));
-                e->kind = platform::OSEvent::Kind::key_down;
+                u32 dwSize = sizeof(RAWINPUT);
+                static u8 lpb[sizeof(RAWINPUT)];
+
+                GetRawInputData((HRAWINPUT)l_param, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER));
+                RAWINPUT* raw = (RAWINPUT*)lpb;
+
+                if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+                    const RAWKEYBOARD& kb = raw->data.keyboard;
+                    u32 vkey = kb.VKey;
+                    if (vkey > 0 && vkey <= 255) {
+                        e->key_event.virtual_key = vkey;
+                        bool is_key_down = !(kb.Flags & RI_KEY_BREAK);
+
+                        if (is_key_down) {
+                            e->kind = platform::OSEvent::Kind::key_down;
+                        } else {
+                            e->kind = platform::OSEvent::Kind::key_up;
+                        }
+                    }
+                } else if (raw->header.dwType == RIM_TYPEMOUSE) {
+                }
+
                 break;
             }
         }
@@ -93,16 +113,21 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE prev_instance, PWSTR cmd_line,
     }
 
     // Register raw input events.
-    RAWINPUTDEVICE Rid[1];
+    RAWINPUTDEVICE Rid[2];
     Rid[0] = {
         .usUsagePage = 0x01,      // HID_USAGE_PAGE_GENERIC
         .usUsage = 0x06,          // HID_USAGE_GENERIC_KEYBOARD
-        .dwFlags = RIDEV_NOLEGACY, // adds keyboard and also ignores legacy keyboard messages
+        .dwFlags = 0,
+        .hwndTarget = window,
+    };
+    Rid[1] = {
+        .usUsagePage = 0x01,      // HID_USAGE_PAGE_GENERIC
+        .usUsage = 0x02,          // HID_USAGE_GENERIC_MOUSE
+        .dwFlags = 0,
         .hwndTarget = window,
     };
 
-    if (RegisterRawInputDevices(Rid, 1, sizeof(RAWINPUTDEVICE)) == FALSE) {
-        platform::fatal("Failed to register raw input device for user keyboard. TODO: Fallback to using legacy keyboard messages");
+    if (RegisterRawInputDevices(Rid, 2, sizeof(RAWINPUTDEVICE)) == FALSE) { platform::fatal("Failed to register raw input device for user keyboard and mouse. TODO: Fallback to using legacy keyboard and mouse messages");
     }
 
     platform::WindowInfo window_info = {

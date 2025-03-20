@@ -47,6 +47,10 @@
             .url = "git+https://github.com/g-truc/glm.git#1.0.1",
             .hash = "N-V-__8AAPKNRAEncU-Q5omLg0TCzkZUbiKdagH2ST1qxvAV",
         },
+        .imgui = .{
+            .url = "git+https://github.com/ocornut/imgui.git#v1.91.9b-docking",
+            .hash = "N-V-__8AACbncwDdHLMz3EkS8iDHirtmHehU_FWTuKnmd9ik",
+        },
     },
     .paths = .{
         "build.zig",

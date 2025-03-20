@@ -16,6 +16,10 @@ struct OSHandle {
     void* handle;
 };
 
+struct KeyEvent {
+    u8 virtual_key;
+};
+
 struct OSEvent {
     enum class Kind {
         user_quit_request,
@@ -23,9 +27,12 @@ struct OSEvent {
         key_up,
         none,
     };
-
     Kind kind;
+    union {
+        KeyEvent key_event;
+    };
 };
+
 
 b32 next_os_event(WindowInfo info, OSEvent* e);
 
@@ -37,7 +44,7 @@ void close_file(OSHandle handle);
 
 /// Attempts to read a number of bytes equal to the length of out buffer slice.
 /// Returns the number of bytes read.
-[[nodiscard]] u64 read_from_file(OSHandle file, Slice<u8> out_buffer);
+[[nodiscard]] u64 read_from_file(OSHandle file, Slice<u8> out_buffer); 
 
 void get_framebuffer_size(WindowInfo window_info, u32* width, u32* height);
 
