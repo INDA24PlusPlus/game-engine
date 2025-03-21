@@ -9,10 +9,13 @@
 #include <cstdint>
 
 struct Mesh {
-	uint32_t vertex_start;
-	uint32_t vertex_end;
-	uint32_t indices_start;
-	uint32_t indices_end;
+	uint32_t num_indices;
+	uint32_t num_vertices;
+};
+
+struct Slice {
+	char* ptr;
+	size_t len;
 };
 
 int main(void) {
@@ -64,6 +67,10 @@ int main(void) {
 	std::string output_path = "mesh_data.bin";
 	std::ofstream outfile(output_path, std::ios::binary);
 
+	Mesh out_mesh;
+	Slice vertex_ptr;
+	Slice index_ptr;
+
 	for (size_t i = 0; i < mesh.primitives.size(); ++i) {
 		tinygltf::Primitive primitive = mesh.primitives[i];
 		{
@@ -76,8 +83,12 @@ int main(void) {
 			// Write the index data.
 			const tinygltf::BufferView& buffer_view = model.bufferViews[index_accessor.bufferView];
 			const tinygltf::Buffer& buffer = model.buffers[buffer_view.buffer];
+
+
 			auto addr = (char*)&buffer.data.at(0);
-			outfile.write(addr + buffer_view.byteOffset, buffer_view.byteLength);
+			index_ptr.ptr = addr + buffer_view.byteOffset;
+			index_ptr.len = buffer_view.byteLength;
+			out_mesh.num_indices = index_accessor.count;
 		}
 			
 
@@ -93,9 +104,15 @@ int main(void) {
 			const tinygltf::Buffer& buffer = model.buffers[buffer_view.buffer];
 
 			auto addr = (char*)&buffer.data.at(0);
-			outfile.write(addr + buffer_view.byteOffset,buffer_view.byteLength);
+			vertex_ptr.ptr = addr + buffer_view.byteOffset;
+			vertex_ptr.len = buffer_view.byteLength;
+			out_mesh.num_vertices = pos_accessor.count;
 		}
 	}
+
+	outfile.write((char*)&out_mesh, sizeof(Mesh));
+	outfile.write(index_ptr.ptr, index_ptr.len);
+	outfile.write(vertex_ptr.ptr, vertex_ptr.len);
 
 	outfile.close();
 }

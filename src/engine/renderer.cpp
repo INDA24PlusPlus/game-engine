@@ -77,11 +77,20 @@ struct PushConstants {
     glm::mat4 projection;
 };
 
+struct Mesh {
+    u32 num_indices;
+    u32 num_vertices;
+};
+
 struct TriangleRenderState{
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
+
     VkDeviceMemory vertex_buffer_mem;
     VkBuffer vertex_buffer;
+
+    VkDeviceMemory index_buffer_mem;
+    VkBuffer index_buffer;
 
     VkCommandPool pools[max_frames_in_flight];
     VkCommandBuffer cmd_bufs[max_frames_in_flight];
@@ -90,6 +99,8 @@ struct TriangleRenderState{
     VkDeviceMemory depth_image_memory;
     VkImageView depth_image_view;
     VkFormat depth_format;
+
+    Mesh tmp_mesh;
 };
 
 struct Context {
@@ -128,15 +139,14 @@ static void destroy_command_pools(Context* context);
 static void create_command_pool_and_buffers(Context* context);
 static void destroy_depth_resources(Context* context);
 static void create_depth_resources(Context* context);
+static Slice<u8> read_entire_file_or_crash(Arena* arena_region, const char* path);
 
 #ifdef _WIN32
-const char* instance_extensions[] = {
+constexpr std::array<const char*, 2> instance_extensions = {
     "VK_KHR_surface",
     "VK_KHR_win32_surface"
 };
 #endif
-
-const u32 num_instance_extensions = 2;
 
 constexpr std::array<const char*, 1> required_device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -190,8 +200,8 @@ constexpr uint32_t num_validation_layers = enable_validation_layers ? validation
         .pApplicationInfo = &app_info,
         .enabledLayerCount = num_validation_layers,
         .ppEnabledLayerNames = validation_layers.data(),
-        .enabledExtensionCount = num_instance_extensions,
-        .ppEnabledExtensionNames = instance_extensions,
+        .enabledExtensionCount = instance_extensions.size(),
+        .ppEnabledExtensionNames = instance_extensions.data(),
     };
 
     context->instance = nullptr;
@@ -227,6 +237,9 @@ constexpr uint32_t num_validation_layers = enable_validation_layers ? validation
     // FIXME: hardcoded to 2 frames in flight.
     u32 frames_in_flight = 2;
     swapchain_init(context, { .width = fb_width, .height = fb_height }, nullptr, swapchain_surface_format, swapchain_present_mode, frames_in_flight);
+
+    // Quick memory leak check.
+    assert(context->scratch.pos == sizeof(Context));
 
     return context;
 }
@@ -785,29 +798,29 @@ static void wait_for_swap_image_fences(Context* context) {
 
 
 static bool check_validation_support(Context* context) {
-	u32 layer_count;	
-	vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+    u32 layer_count;	
+    vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
-	auto tmp = arena_begin_region(&context->scratch);
-	defer { region_reset(&tmp); };
+    auto tmp = arena_begin_region(&context->scratch);
+    defer { region_reset(&tmp); };
 
-	auto layers = arena_alloc<VkLayerProperties>(&context->scratch, layer_count);	
-	vkEnumerateInstanceLayerProperties(&layer_count, layers.ptr);
-	for (size_t i = 0; i < validation_layers.size(); ++i) {
-		bool layer_found = false;
-		for (size_t j = 0; i < layers.len; ++j) {
-			if (strcmp(validation_layers[i], layers[j].layerName) == 0) {
-				layer_found = true;
-				break;
-			}
-		}
+    auto layers = arena_alloc<VkLayerProperties>(&context->scratch, layer_count);	
+    vkEnumerateInstanceLayerProperties(&layer_count, layers.ptr);
+    for (size_t i = 0; i < validation_layers.size(); ++i) {
+        bool layer_found = false;
+        for (size_t j = 0; i < layers.len; ++j) {
+            if (strcmp(validation_layers[i], layers[j].layerName) == 0) {
+                layer_found = true;
+                break;
+            }
+        }
 
-		if (!layer_found) {
-			return false;
-		}
-	}
+        if (!layer_found) {
+            return false;
+        }
+    }
 
-	return true;
+    return true;
 }
 
 const char* vk_result_to_string(VkResult result) {
@@ -849,27 +862,10 @@ struct Vertex {
     f32 position[3];
 };
 
-
 static VkShaderModule load_shader_module(Context* context, const char* path) {
-    auto file = platform::open_file(path);
-    if (file.handle == nullptr) {
-        platform::fatal(std::format("Failed to open file at path {}", path));
-    }
-    defer { platform::close_file(file); };
-
-    auto file_size = platform::get_file_size(file);
-    assert(file_size != 0);
-
     auto region = arena_begin_region(&context->scratch);
     defer { region_reset(&region); };
-
-    // Vulkan requires the SPIR-V to be 4-byte aligned.
-    auto code = arena_alloc_aligned<u8>(&context->scratch, file_size, alignof(u32));
-
-    auto size = platform::read_from_file(file, code);
-    if (size != file_size) {
-        platform::fatal("Failed to read entire SPIRV binary file");
-    }
+    auto code = read_entire_file_or_crash(&context->scratch, path);
 
     VkShaderModuleCreateInfo module_info = {
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -883,50 +879,6 @@ static VkShaderModule load_shader_module(Context* context, const char* path) {
 
     return shader_module;
 }
-
-constexpr std::array<Vertex, 36> vertices = {
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f,  0.5f, -0.5f } },
-        Vertex { {  0.5f,  0.5f, -0.5f } },
-        Vertex { { -0.5f,  0.5f, -0.5f } },
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-
-        Vertex { { -0.5f, -0.5f,  0.5f } },
-        Vertex { {  0.5f, -0.5f,  0.5f } },
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-        Vertex { { -0.5f,  0.5f,  0.5f } },
-        Vertex { { -0.5f, -0.5f,  0.5f } },
-
-        Vertex { { -0.5f,  0.5f,  0.5f } },
-        Vertex { { -0.5f,  0.5f, -0.5f } },
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-        Vertex { { -0.5f, -0.5f,  0.5f } },
-        Vertex { { -0.5f,  0.5f,  0.5f } },
-
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-        Vertex { {  0.5f,  0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f,  0.5f } },
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f, -0.5f } },
-        Vertex { {  0.5f, -0.5f,  0.5f } },
-        Vertex { {  0.5f, -0.5f,  0.5f } },
-        Vertex { { -0.5f, -0.5f,  0.5f } },
-        Vertex { { -0.5f, -0.5f, -0.5f } },
-
-        Vertex { { -0.5f,  0.5f, -0.5f } },
-        Vertex { {  0.5f,  0.5f, -0.5f } },
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-        Vertex { {  0.5f,  0.5f,  0.5f } },
-        Vertex { { -0.5f,  0.5f,  0.5f } },
-        Vertex { { -0.5f,  0.5f, -0.5f } }
-};
 
 // From vulkan samples.
 static void create_pipeline(Context* context) {
@@ -1093,7 +1045,7 @@ static void create_pipeline(Context* context) {
     vkDestroyShaderModule(context->device, shader_stages[1].module, nullptr);
 }
 
-static void copy_buffer(Context* context, VkBuffer dst, VkBuffer src, VkDeviceSize size) {
+static void copy_buffer(Context* context, VkBuffer dst, VkBuffer src, VkBufferCopy region) {
     VkCommandBufferAllocateInfo cmd_buf_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = context->state.pools[0],
@@ -1104,12 +1056,6 @@ static void copy_buffer(Context* context, VkBuffer dst, VkBuffer src, VkDeviceSi
     VkCommandBuffer one_time_buf;
     VK_CHECK(vkAllocateCommandBuffers(context->device, &cmd_buf_info, &one_time_buf));
     defer { vkFreeCommandBuffers(context->device, context->state.pools[0], 1, &one_time_buf); };
-
-    VkBufferCopy region = {
-        .srcOffset = 0,
-        .dstOffset = 0,
-        .size = size,
-    };
 
     VkCommandBufferBeginInfo info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -1131,57 +1077,107 @@ static void copy_buffer(Context* context, VkBuffer dst, VkBuffer src, VkDeviceSi
     VK_CHECK(vkQueueWaitIdle(context->graphics_queue.handle));
 }
 
-static void create_vertex_buffer(Context* context) {
-    VkDeviceSize buffer_size = sizeof(Vertex) * vertices.size();
+static Slice<u8> read_entire_file_or_crash(Arena* arena, const char* path) {
+    auto file = platform::open_file(path);
+    if (file.handle == nullptr) {
+        platform::fatal(std::format("Failed to open file at path {}", path));
+    }
+    defer { platform::close_file(file); };
 
-    // Create device buffer
-    {
-        VkBufferCreateInfo vertex_buffer_create_info = {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .flags = 0,
-            .size = buffer_size,
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
-        };
-        VK_CHECK(vkCreateBuffer(context->device, &vertex_buffer_create_info, nullptr, &context->state.vertex_buffer));
+    auto file_size = platform::get_file_size(file);
+    assert(file_size != 0);
 
-        VkMemoryRequirements req;
-        vkGetBufferMemoryRequirements(context->device, context->state.vertex_buffer, &req);
-
-        context->state.vertex_buffer_mem = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CHECK(vkBindBufferMemory(context->device, context->state.vertex_buffer, context->state.vertex_buffer_mem, 0));
+    auto buf = arena_alloc_aligned<u8>(arena, file_size, alignof(u64));
+    auto size = platform::read_from_file(file, buf);
+    if (size != file_size) {
+        platform::fatal(std::format("Failed to read entire file at path {}", path));
     }
 
-    VkBuffer staging_buffer;
-    VkBufferCreateInfo staging_buffer_create_info = {
+    return buf;
+}
+
+static VkBuffer create_buffer(Context* context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryRequirements* requirements) {
+    VkBuffer buffer;
+    VkBufferCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .flags = 0,
-        .size = buffer_size,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .size = size,
+        .usage = usage,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
+    VK_CHECK(vkCreateBuffer(context->device, &create_info, nullptr, &buffer));
+    vkGetBufferMemoryRequirements(context->device, buffer, requirements);
+    return buffer;
+}
 
-    VK_CHECK(vkCreateBuffer(context->device, &staging_buffer_create_info, nullptr, &staging_buffer));
-    defer { vkDestroyBuffer(context->device, staging_buffer, nullptr); };
+static void load_mesh_data(Context* context) {
+    const char* path = "tools/asset_processor/mesh_data.bin";
 
+    // Open file
+    auto file = platform::open_file(path);
+    if (file.handle == nullptr) {
+        platform::fatal(std::format("Failed to open file at path {}", path));
+    }
+    defer { platform::close_file(file); };
+
+    auto file_size = platform::get_file_size(file);
+    assert(file_size != 0);
+
+    // Allocate staging buffer
     VkMemoryRequirements req;
-    vkGetBufferMemoryRequirements(context->device, staging_buffer, &req);
+    VkBuffer staging_buffer = create_buffer(context, file_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &req);
+    defer { vkDestroyBuffer(context->device, staging_buffer, nullptr); };
 
     auto staging_mem = allocate(context, &req, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     defer { vkFreeMemory(context->device, staging_mem, nullptr); };
 
     VK_CHECK(vkBindBufferMemory(context->device, staging_buffer, staging_mem, 0));
 
-    {
-        void* data_ptr;
-        VK_CHECK(vkMapMemory(context->device, staging_mem, 0, VK_WHOLE_SIZE, 0, &data_ptr));
-        Vertex* gpu_vertices = (Vertex*)data_ptr;
-        for (u32 i = 0; i < vertices.size(); ++i) {
-            gpu_vertices[i] = vertices[i];
-        }
-        vkUnmapMemory(context->device, staging_mem);
+    // Read file into staging buffer.
+    void* data_ptr;
+    VK_CHECK(vkMapMemory(context->device, staging_mem, 0, VK_WHOLE_SIZE, 0, &data_ptr));
+    Slice<u8> buf = {
+        .ptr = (u8*)data_ptr,
+        .len = file_size,
+    };
+    auto size = platform::read_from_file(file, buf);
+    if (size != file_size) {
+        platform::fatal(std::format("Failed to read entire file at path {}", path));
     }
-    copy_buffer(context, context->state.vertex_buffer, staging_buffer, sizeof(Vertex) * vertices.size());
+
+    context->state.tmp_mesh = *((Mesh*)data_ptr);
+    vkUnmapMemory(context->device, staging_mem);
+
+    // index buffer
+    {
+        VkDeviceSize buffer_size = sizeof(u16) * context->state.tmp_mesh.num_indices;
+        VkMemoryRequirements req;
+        context->state.index_buffer = create_buffer(context, buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, &req);
+        context->state.index_buffer_mem = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_CHECK(vkBindBufferMemory(context->device, context->state.index_buffer, context->state.index_buffer_mem, 0));
+
+        VkBufferCopy region = {
+            .srcOffset = sizeof(Mesh),
+            .dstOffset = 0,
+            .size = buffer_size,
+        };
+        copy_buffer(context, context->state.index_buffer, staging_buffer, region);
+    }
+    // Create device vertex buffer
+    {
+        VkDeviceSize buffer_size = sizeof(Vertex) * context->state.tmp_mesh.num_vertices;
+        VkMemoryRequirements req;
+        context->state.vertex_buffer = create_buffer(context, buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, &req);
+        context->state.vertex_buffer_mem = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_CHECK(vkBindBufferMemory(context->device, context->state.vertex_buffer, context->state.vertex_buffer_mem, 0));
+
+        VkBufferCopy region = {
+            .srcOffset = (context->state.tmp_mesh.num_indices * sizeof(u16)) + sizeof(Mesh),
+            .dstOffset = 0,
+            .size = buffer_size,
+        };
+        copy_buffer(context, context->state.vertex_buffer, staging_buffer, region);
+    }
 }
 
 // From vulkan samples.
@@ -1388,9 +1384,10 @@ static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matr
     // Bind the vertex buffer
     VkDeviceSize offset = {0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &context->state.vertex_buffer, &offset);
+    vkCmdBindIndexBuffer(cmd, context->state.index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
     // Draw three vertices with one instance.
-    vkCmdDraw(cmd, vertices.size(), 1, 0, 0);
+    vkCmdDrawIndexed(cmd, context->state.tmp_mesh.num_indices, 1, 0, 0, 0);
 
     // Complete rendering.
     vkCmdEndRendering(cmd);
@@ -1472,9 +1469,8 @@ void create_state_for_triangle(Context* context) {
     create_command_pool_and_buffers(context);
     std::println("Created command pool");
 
-    create_vertex_buffer(context);
-    std::println("Created and uploaded vertex buffer");
-
+    load_mesh_data(context);
+    std::println("Created and uploaded mesh data");
 }
 
 static void destroy_temp_state(Context* context) {
@@ -1486,6 +1482,10 @@ static void destroy_temp_state(Context* context) {
     // Vertex buffer
     vkDestroyBuffer(context->device, context->state.vertex_buffer, nullptr);
     vkFreeMemory(context->device, context->state.vertex_buffer_mem, nullptr);
+
+    // Index buffer
+    vkDestroyBuffer(context->device, context->state.index_buffer, nullptr);
+    vkFreeMemory(context->device, context->state.index_buffer_mem, nullptr);
 
     // Command pools
     destroy_command_pools(context);
