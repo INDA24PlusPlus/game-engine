@@ -1,0 +1,12 @@
+*
+
+!src/
+!src/**
+
+!submodules/
+!submodules/*
+
+!.gitignore
+!.gitmodules
+!LICENSE
+!start.sh
