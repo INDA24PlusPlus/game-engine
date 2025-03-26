@@ -7,6 +7,5 @@
 !submodules/*
 
 !.gitignore
-!.gitmodules
 !LICENSE
 !start.sh

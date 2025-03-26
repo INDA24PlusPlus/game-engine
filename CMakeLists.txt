@@ -17,9 +17,10 @@ set(CMAKE_CXX_CLANG_TIDY "clang-tidy;--config-file=${CMAKE_CURRENT_SOURCE_DIR}/.
 find_package(Vulkan REQUIRED)
 
 FetchContent_Declare(glm URL https://github.com/g-truc/glm/releases/download/1.0.1/glm-1.0.1-light.zip)
-FetchContent_Declare(imgui URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.zip)
-
 FetchContent_MakeAvailable(glm)
+
+# ImGui
+FetchContent_Declare(imgui URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.zip)
 FetchContent_MakeAvailable(imgui)
 
 set(IMGUI_SOURCES 
@@ -31,17 +32,21 @@ set(IMGUI_SOURCES
     "${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp"
 )
 
-message(STATUS "ImGui at: ${imgui_SOURCE_DIR}")
+add_library(imgui "${IMGUI_SOURCES}")
 
-# Create project binary
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
-add_executable(gameengine "${SOURCES}" "${IMGUI_SOURCES}")
-
-target_include_directories(gameengine
-    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    PUBLIC "${VULKAN_INCLUDE_DIRS}"
+set_target_properties(imgui PROPERTIES SKIP_LINTING ON)
+target_include_directories(imgui
     PUBLIC "${imgui_SOURCE_DIR}"
     PUBLIC "${imgui_SOURCE_DIR}/backends"
 )
 
-target_link_libraries(gameengine PRIVATE Vulkan::Vulkan glm::glm-header-only)
+# Project 
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
+add_executable(gameengine "${SOURCES}")
+
+target_include_directories(gameengine
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    PUBLIC "${VULKAN_INCLUDE_DIRS}"
+)
+
+target_link_libraries(gameengine PRIVATE Vulkan::Vulkan glm::glm-header-only imgui)
