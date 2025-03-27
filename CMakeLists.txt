@@ -33,12 +33,11 @@ set(IMGUI_SOURCES
 )
 
 add_library(imgui "${IMGUI_SOURCES}")
-
-set_target_properties(imgui PROPERTIES SKIP_LINTING ON)
 target_include_directories(imgui
     PUBLIC "${imgui_SOURCE_DIR}"
     PUBLIC "${imgui_SOURCE_DIR}/backends"
 )
+set_target_properties(imgui PROPERTIES CXX_CLANG_TIDY "")
 
 # Project 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
