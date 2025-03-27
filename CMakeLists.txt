@@ -45,7 +45,7 @@ add_executable(gameengine "${SOURCES}")
 
 target_include_directories(gameengine
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    PUBLIC "${VULKAN_INCLUDE_DIRS}"
+    PRIVATE "${VULKAN_INCLUDE_DIRS}"
 )
 
 target_link_libraries(gameengine PRIVATE Vulkan::Vulkan glm::glm-header-only imgui)
