@@ -13,11 +13,15 @@ const win32_sources = [_][]const u8{
     "src/engine/win32_platform.cpp",
 } ++ engine_source_files ++ game_source_files;
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
     const disable_bounds_checks = b.option(bool, "disable-bounds-checks", "Disables bounds checking for user created types") orelse true;
+    const enable_tracy = b.option(bool, "enable-tracy", "Build with support for profiling with the tracy profiler.") orelse false;
     _ = disable_bounds_checks;
+
+    var flags = std.ArrayList([]const u8).init(b.allocator);
+    try flags.appendSlice(&.{ "-std=c++23", "-Wall", "-Wextra", "-Wunused-result", "-Werror", "-Wno-missing-field-initializers", "-Wno-unused-function" });
 
     const exe = b.addExecutable(.{
         .name = "vulkan_renderer",
@@ -53,28 +57,41 @@ pub fn build(b: *std.Build) void {
         exe.addIncludePath(glm_dep.path(""));
     }
 
-    //imGUI
+    // vma
     {
-        const imgui_dep = b.dependency("imgui", .{});
-        const imgui_source_files = [_][]const u8{
-            "imgui.cpp",
-            "imgui_demo.cpp",
-            "imgui_draw.cpp",
-            "imgui_tables.cpp",
-            "imgui_widgets.cpp",
-            "backends/imgui_impl_vulkan.cpp",
-        };
-        exe.addIncludePath(imgui_dep.path(""));
-        exe.addIncludePath(imgui_dep.path("backends"));
-        for (&imgui_source_files) |src| {
-            exe.addCSourceFile(.{ .file = imgui_dep.path(src), .flags = &.{"-DIMGUI_IMPL_VULKAN_USE_VOLK"} });
+        const vma_dep = b.dependency("vulkan_memory_allocator", .{});
+        exe.addIncludePath(vma_dep.path("include"));
+        exe.addIncludePath(vma_dep.path("src"));
+        exe.addCSourceFile(.{
+            .file = vma_dep.path("src/VmaUsage.cpp"),
+        });
+    }
+
+    // Tracy
+    {
+        const tracy_dep = b.dependency("tracy", .{});
+        exe.addIncludePath(tracy_dep.path("public"));
+        if (enable_tracy) {
+            try flags.append("-DTRACY_ENABLE");
+            exe.addCSourceFile(.{
+                .file = tracy_dep.path("public/TracyClient.cpp"),
+                .flags = &.{"-DTRACY_ENABLE"},
+            });
+
+            switch (target.result.os.tag) {
+                .windows => {
+                    exe.linkSystemLibrary("ws2_32");
+                    exe.linkSystemLibrary("dbghelp");
+                },
+                else => @panic("TODO"),
+            }
         }
     }
 
     exe.linkLibCpp();
     exe.addCSourceFiles(.{
         .files = &win32_sources,
-        .flags = &.{ "-std=c++23", "-Wall", "-Wextra", "-Wunused-result", "-Werror", "-Wno-missing-field-initializers", "-Wno-unused-function" },
+        .flags = flags.items,
     });
 
     b.installArtifact(exe);

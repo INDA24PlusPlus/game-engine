@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <print>
+#include <tracy/Tracy.hpp>
 
 namespace game {
 
@@ -32,6 +33,9 @@ b32 update(State& state, f32 delta_time) {
             } break;
             case platform::OSEvent::Kind::key_down: {
                 state.kb.register_key(event.key_event);
+                if (event.key_event.virtual_key == 0x20) {
+                    increment_display_bone(state.renderer_context);
+                }
             } break;
             case platform::OSEvent::Kind::key_up: {
                 state.kb.unregister_key(event.key_event);
@@ -43,6 +47,11 @@ b32 update(State& state, f32 delta_time) {
     state.delta_time = delta_time;
     state.curr_time += delta_time;
 
+    state.camera.speed = 10.0f;
+    // TODO: Fix input code.
+    if (state.kb.is_key_down(0x11)) {
+        state.camera.speed = 1.0f;
+    }
     if (state.kb.is_key_down('W')) {
         state.camera.move(engine::Camera::Direction::forward, delta_time);
     }
@@ -74,6 +83,7 @@ b32 update(State& state, f32 delta_time) {
         }
     }
 
+    FrameMark;
     return 1;
 }
 

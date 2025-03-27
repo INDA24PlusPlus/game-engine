@@ -44,6 +44,7 @@ void close_file(OSHandle handle);
 
 /// Attempts to read a number of bytes equal to the length of out buffer slice.
 /// Returns the number of bytes read.
+/// Will read from the current cursor position in the file.
 [[nodiscard]] u64 read_from_file(OSHandle file, Slice<u8> out_buffer); 
 
 void get_framebuffer_size(WindowInfo window_info, u32* width, u32* height);

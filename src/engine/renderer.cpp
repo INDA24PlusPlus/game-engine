@@ -8,33 +8,44 @@
 // - When we want to do shadow mapping add read bit to the memory barrier for the depth attachment.
 // - Might have to change load/store op for the color attachment when switching to a HDR color buffer
 
-#include <format>
-#include <optional>
-
 // FIXME: Don't use print here. I do this for now to make sure
 // this file has proper log messages, but we don't actually have a logging system right now.
-#include <print>
 
 #include "core.h"
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "platform.h"
+#include "arena.h"
+#include "assets.h"
 
 #ifdef _WIN32
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
 
 #include "volk.h"
-#include "platform.h"
+
+#include <print>
+#include <format>
+#include <optional>
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <VmaUsage.h>
+#include <tracy/Tracy.hpp>
 
 namespace renderer {
 
 constexpr u32 max_frames_in_flight = 3;
 
 struct QueueAllocation {
-    uint32_t graphics_family; // NOTE: For now we require the graphics queue to support present operations.
+    u32 graphics_family; // NOTE: For now we require the graphics queue to support present operations.
+};
+
+struct Buffer {
+    VkBuffer handle;
+    VmaAllocation allocation;
+    VmaAllocationInfo info;
 };
 
 struct PhysicalDevice {
@@ -69,38 +80,48 @@ struct Swapchain {
     VkSemaphore next_image_acquired;
 };
 
-
-// TODO: Remove these structs when we don't need it anymore.
-struct PushConstants {
+struct UBOMatrices {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
 };
 
-struct Mesh {
-    u32 num_indices;
-    u32 num_vertices;
+struct Pipeline {
+    VkPipeline handle;
+    VkPipelineLayout layout;
 };
 
-struct TriangleRenderState{
+struct RenderState {
     VkPipelineLayout pipeline_layout;
     VkPipeline pipeline;
+    Pipeline skinned_pipeline;
 
-    VkDeviceMemory vertex_buffer_mem;
-    VkBuffer vertex_buffer;
+    VkDescriptorPool descriptor_pool;
+    VkDescriptorSetLayout descriptor_set_layout;
+    VkDescriptorSet descriptor_sets[max_frames_in_flight];
 
-    VkDeviceMemory index_buffer_mem;
-    VkBuffer index_buffer;
+    Buffer static_vertex_buffer;
+    Buffer skinned_vertex_buffer;
+    Buffer index_buffer;
+
+    Buffer ubo_buffers[max_frames_in_flight];
+    UBOMatrices* ubo_matrices[max_frames_in_flight];
 
     VkCommandPool pools[max_frames_in_flight];
     VkCommandBuffer cmd_bufs[max_frames_in_flight];
 
     VkImage depth_image;
-    VkDeviceMemory depth_image_memory;
+    VmaAllocation depth_image_allocation;
     VkImageView depth_image_view;
     VkFormat depth_format;
 
-    Mesh tmp_mesh;
+    Slice<glm::mat4> mesh_transforms;
+    Slice<engine::asset::StaticMesh> static_meshes;
+    Slice<engine::asset::SkinnedMesh> skinned_meshes;
+    Slice<engine::asset::Node> node_hierarchy;
+    Slice<engine::asset::BoneData> bone_data;
+
+    u32 display_bone;
 };
 
 struct Context {
@@ -108,8 +129,8 @@ struct Context {
     VkSurfaceKHR surface;
     VkPhysicalDevice pdev;
     VkDevice device;
-    VkPhysicalDeviceMemoryProperties mem_props;
     VkPhysicalDeviceProperties pdev_props;
+    VmaAllocator vma_allocator;
 
     Queue graphics_queue;
     Swapchain swapchain;
@@ -117,7 +138,7 @@ struct Context {
     Arena scratch;
 
     // TEMP.
-    TriangleRenderState state;
+    RenderState state;
 };
 
 // There is no logic to this. Just go ham :) It is also here since I don't want to bring in vulkan.h to the header file
@@ -134,12 +155,18 @@ static void swapchain_deinit(Context* context);
 static void destroy_temp_state(Context* context);
 static void wait_for_swap_image_fences(Context* context);
 static bool check_validation_support(Context* context);
-static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matrix);
+static void render_mesh(Context* context);
 static void destroy_command_pools(Context* context);
 static void create_command_pool_and_buffers(Context* context);
 static void destroy_depth_resources(Context* context);
 static void create_depth_resources(Context* context);
 static Slice<u8> read_entire_file_or_crash(Arena* arena_region, const char* path);
+static void create_vma_allocator(Context* context);
+static Buffer create_buffer(Context* context,
+                            VkDeviceSize size,
+                            VkBufferUsageFlags usage,
+                            VmaAllocationCreateFlags vma_flags);
+static void update_uniform_buffers(Context* context, f32 curr_time, const glm::mat4& view_matrix);
 
 #ifdef _WIN32
 constexpr std::array<const char*, 2> instance_extensions = {
@@ -223,7 +250,8 @@ constexpr uint32_t num_validation_layers = enable_validation_layers ? validation
 
     vkGetDeviceQueue(context->device, physical_device.queues.graphics_family, 0, &context->graphics_queue.handle);
     context->graphics_queue.family = physical_device.queues.graphics_family;
-    vkGetPhysicalDeviceMemoryProperties(context->pdev, &context->mem_props);
+
+    create_vma_allocator(context);
 
     // NOTE: FIFO is always supported. When chaning this use 'is_present_mode_supported' before specifying anything else.
     VkPresentModeKHR swapchain_present_mode = VK_PRESENT_MODE_FIFO_KHR;
@@ -258,10 +286,16 @@ void destroy_context(Context* context) {
         swapchain_deinit(context);
     }
 
+    vmaDestroyAllocator(context->vma_allocator); 
+
     vkDestroyDevice(context->device, nullptr);
     vkDestroySurfaceKHR(context->instance, context->surface, nullptr);
     vkDestroyInstance(context->instance, nullptr);
     std::println("Destroyed context");
+}
+
+void increment_display_bone(Context* context) {
+    context->state.display_bone = (context->state.display_bone + 1) % context->state.skinned_meshes[0].num_bones;
 }
 
 void resize_swapchain(Context* context, u32 width, u32 height) {
@@ -278,16 +312,22 @@ void resize_swapchain(Context* context, u32 width, u32 height) {
     create_command_pool_and_buffers(context);
 }
 
-PresentState present(Context* context, f32 curr_time, glm::mat4 view_matrix) {
+PresentState present(Context* context, f32 curr_time, const glm::mat4& view_matrix) {
+    ZoneScopedN("Present");
     auto swapchain = &context->swapchain;
 
     // Record commands for the current frame.
-    render_triangle(context, curr_time, view_matrix);
+    render_mesh(context);
 
     // Wait for the current frame to finish rendering.
     auto current = swapchain->images[swapchain->image_index];
-    VK_CHECK(vkWaitForFences(context->device, 1, &current.frame_fence, VK_TRUE, 0xFFFFFFFFFFFFFFFF));
-    VK_CHECK(vkResetFences(context->device, 1, &current.frame_fence));
+    {
+        ZoneScopedN("Wait for previous frame");
+        VK_CHECK(vkWaitForFences(context->device, 1, &current.frame_fence, VK_TRUE, 0xFFFFFFFFFFFFFFFF));
+        VK_CHECK(vkResetFences(context->device, 1, &current.frame_fence));
+    }
+
+    update_uniform_buffers(context, curr_time, view_matrix);
 
     // Submit command buffer.
     VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -301,7 +341,10 @@ PresentState present(Context* context, f32 curr_time, glm::mat4 view_matrix) {
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = &current.render_finished, // <------- render_finished is signaled once the queue has been executed.
     };
-    VK_CHECK(vkQueueSubmit(context->graphics_queue.handle, 1, &submit_info, current.frame_fence)); // <--- submit and signal frame fence once we are finished.
+    {
+        ZoneScopedN("Queue submission");
+        VK_CHECK(vkQueueSubmit(context->graphics_queue.handle, 1, &submit_info, current.frame_fence)); // <--- submit and signal frame fence once we are finished.
+    }
 
     // Present the frame
     VkPresentInfoKHR present_info = {
@@ -313,6 +356,7 @@ PresentState present(Context* context, f32 curr_time, glm::mat4 view_matrix) {
         .pImageIndices = &swapchain->image_index,
         .pResults = nullptr
     };
+
     VkResult result = vkQueuePresentKHR(context->graphics_queue.handle, &present_info);
     switch (result) {
         case VK_SUBOPTIMAL_KHR: return PresentState::suboptimal;
@@ -338,6 +382,48 @@ PresentState present(Context* context, f32 curr_time, glm::mat4 view_matrix) {
     };
 
     return PresentState::optimal;
+}
+
+static void create_vma_allocator(Context* context) {
+    // Flags we probably want:
+    // VMA_ALLOCATOR_CREATE_EXT_MEMORY_BUDGET_BIT - Get current VRAM usage?
+    // VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT - Remove usage of internal mutexes (We will probably be single threaded).
+    VmaVulkanFunctions vma_vulkan_functions = {
+        .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
+        .vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties,
+        .vkAllocateMemory= vkAllocateMemory,
+        .vkFreeMemory= vkFreeMemory,
+        .vkMapMemory= vkMapMemory,
+        .vkUnmapMemory= vkUnmapMemory,
+        .vkFlushMappedMemoryRanges= vkFlushMappedMemoryRanges,
+        .vkInvalidateMappedMemoryRanges= vkInvalidateMappedMemoryRanges,
+        .vkBindBufferMemory= vkBindBufferMemory,
+        .vkBindImageMemory= vkBindImageMemory,
+        .vkGetBufferMemoryRequirements= vkGetBufferMemoryRequirements,
+        .vkGetImageMemoryRequirements= vkGetImageMemoryRequirements,
+        .vkCreateBuffer= vkCreateBuffer,
+        .vkDestroyBuffer= vkDestroyBuffer,
+        .vkCreateImage= vkCreateImage,
+        .vkDestroyImage= vkDestroyImage,
+        .vkCmdCopyBuffer= vkCmdCopyBuffer,
+        .vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2,
+        .vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2,
+        .vkBindBufferMemory2KHR = vkBindBufferMemory2,
+        .vkBindImageMemory2KHR = vkBindImageMemory2,
+        .vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2,
+        .vkGetDeviceBufferMemoryRequirements = vkGetDeviceBufferMemoryRequirements,
+        .vkGetDeviceImageMemoryRequirements = vkGetDeviceImageMemoryRequirements,
+        .vkGetMemoryWin32HandleKHR = vkGetMemoryWin32HandleKHR,
+    };
+    VmaAllocatorCreateInfo allocator_create_info = {
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+        .physicalDevice = context->pdev,
+        .device = context->device,
+        .pVulkanFunctions = &vma_vulkan_functions,
+        .instance = context->instance,
+        .vulkanApiVersion = VK_API_VERSION_1_3,
+    };
+    VK_CHECK(vmaCreateAllocator(&allocator_create_info, &context->vma_allocator));
 }
 
 static bool check_extension_support(VkPhysicalDevice pdev, Arena* scratch) {
@@ -760,32 +846,6 @@ static VkSurfaceFormatKHR find_surface_format(Context* context, VkSurfaceFormatK
     return surface_formats[0];
 };
 
-static u32 find_memory_type_index(Context* context, u32 memory_type_bits, VkMemoryPropertyFlags flags) {
-    for (u32 i = 0; i < context->mem_props.memoryTypeCount; ++i) {
-        if ((memory_type_bits & (1 << i)) && (context->mem_props.memoryTypes[i].propertyFlags & flags)) {
-            return i;
-        }
-    }
-
-    // It seems kinda silly to fatally crash if we cannot find a compatible memory type
-    // but I don't really see a good recovery path that the caller could take.
-    platform::fatal("Could not find a compatible memory type for the specified allocation requirements");
-}
-
-static VkDeviceMemory allocate(Context* context, const VkMemoryRequirements* req, VkMemoryPropertyFlags flags) {
-    u32 memory_type_index = find_memory_type_index(context, req->memoryTypeBits, flags);
-
-    VkMemoryAllocateInfo allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = req->size,
-        .memoryTypeIndex = memory_type_index,
-    };
-
-    VkDeviceMemory mem;
-    VK_CHECK(vkAllocateMemory(context->device, &allocate_info, nullptr, &mem));
-    return mem;
-}
-
 static void wait_for_swap_image_fences(Context* context) {
     VkFence fences[3] = {
         context->swapchain.images[0].frame_fence,
@@ -798,13 +858,13 @@ static void wait_for_swap_image_fences(Context* context) {
 
 
 static bool check_validation_support(Context* context) {
-    u32 layer_count;	
+    u32 layer_count;
     vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
 
     auto tmp = arena_begin_region(&context->scratch);
     defer { region_reset(&tmp); };
 
-    auto layers = arena_alloc<VkLayerProperties>(&context->scratch, layer_count);	
+    auto layers = arena_alloc<VkLayerProperties>(&context->scratch, layer_count);
     vkEnumerateInstanceLayerProperties(&layer_count, layers.ptr);
     for (size_t i = 0; i < validation_layers.size(); ++i) {
         bool layer_found = false;
@@ -856,12 +916,6 @@ const char* vk_result_to_string(VkResult result) {
     }
 }
 
-
-// TEMP stuff for now.
-struct Vertex {
-    f32 position[3];
-};
-
 static VkShaderModule load_shader_module(Context* context, const char* path) {
     auto region = arena_begin_region(&context->scratch);
     defer { region_reset(&region); };
@@ -880,40 +934,161 @@ static VkShaderModule load_shader_module(Context* context, const char* path) {
     return shader_module;
 }
 
-// From vulkan samples.
-static void create_pipeline(Context* context) {
-    auto state = &context->state;
+static void create_descriptor_set_layout(Context* context) {
+    VkDescriptorSetLayoutBinding ubo_layout = {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .pImmutableSamplers = nullptr,
+    };
 
-    if (context->pdev_props.limits.maxPushConstantsSize < 192) {
-        platform::fatal("Your device does not support atleast 192 bytes of push constants, this requirement is temporary and will be lifted soon");
+    VkDescriptorSetLayoutCreateInfo layout_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &ubo_layout,
+    };
+
+    VK_CHECK(vkCreateDescriptorSetLayout(context->device, &layout_info, nullptr, &context->state.descriptor_set_layout));
+}
+
+static void create_descriptor_pool(Context* context) {
+    VkDescriptorPoolSize pool_size = {
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = max_frames_in_flight,
+    };
+
+    VkDescriptorPoolCreateInfo pool_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .maxSets = max_frames_in_flight,
+        .poolSizeCount = 1,
+        .pPoolSizes = &pool_size,
+    };
+
+    VK_CHECK(vkCreateDescriptorPool(context->device, &pool_info, nullptr, &context->state.descriptor_pool));
+}
+
+static void create_descriptor_sets(Context* context) {
+    VkDescriptorSetLayout layouts[max_frames_in_flight];
+    for (size_t i = 0; i < max_frames_in_flight; i++) {
+        layouts[i] = context->state.descriptor_set_layout;
     }
 
-    std::println("Push constants are {} bytes", sizeof(PushConstants));
-
-    VkPushConstantRange push_constant = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-        .offset = 0,
-        .size = sizeof(PushConstants),
+    VkDescriptorSetAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = context->state.descriptor_pool,
+        .descriptorSetCount = max_frames_in_flight,
+        .pSetLayouts = layouts,
     };
+    VK_CHECK(vkAllocateDescriptorSets(context->device, &alloc_info, context->state.descriptor_sets));
+
+    for (size_t i = 0; i < max_frames_in_flight; i++) {
+        VkDescriptorBufferInfo buffer_info = {
+            .buffer = context->state.ubo_buffers[i].handle,
+            .offset = 0,
+            .range = sizeof(UBOMatrices),
+        };
+
+        VkWriteDescriptorSet descriptor_write = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = context->state.descriptor_sets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo = &buffer_info,
+        };
+        vkUpdateDescriptorSets(context->device, 1, &descriptor_write, 0, nullptr);
+    }
+}
+
+static void traverse_node_hierarchy(Context* context, engine::asset::Node& node, const glm::mat4& parent_transform) {
+    auto global_transform = parent_transform * node.transform;
+
+    if (node.kind == engine::asset::Node::Kind::bone) {
+        engine::asset::BoneData& bone_data = context->state.bone_data[node.bone_index];
+        bone_data.final = global_transform * bone_data.offset;
+    } else if (node.kind == engine::asset::Node::Kind::mesh) {
+        for (size_t i = 0; i < node.mesh_data.num_meshes; ++i) {
+            context->state.mesh_transforms[node.mesh_data.mesh_indices[i]] = global_transform;
+        }
+    }
+
+    for (size_t i = 0; i < node.child_count; ++i) {
+        traverse_node_hierarchy(context, context->state.node_hierarchy[node.child_index + i], global_transform);
+    }
+}
+
+static void update_bone_transforms(Context* context) {
+    auto identity = glm::mat4(1.0f);
+    traverse_node_hierarchy(context, context->state.node_hierarchy[0], identity);
+}
+
+static void update_uniform_buffers(Context* context, f32 curr_time, const glm::mat4& view_matrix) {
+    glm::mat4 proj = glm::perspective(glm::radians(90.0f), (f32)context->swapchain.extent.width / (f32)context->swapchain.extent.height, 0.1f, 10000.f);
+    proj[1][1] *= -1;
+
+    (void)curr_time;
+    UBOMatrices mat_data = {
+        .model = glm::translate(context->state.mesh_transforms[0], glm::vec3(0, 0, 0)),
+        //.model = glm::translate(glm::mat4(1.0f), glm::vec3(0, 5, 0)),
+        //.model = glm::scale(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(-1, 0, 0)), glm::vec3(1.0)),
+        //.model = glm::translate(glm::rotate(glm::mat4(1.0f), curr_time, glm::vec3(0.0f, 0.0f, 1.0f)), glm::vec3(0.0f, 0.0f, -1.0f)),
+        .view = view_matrix,
+        .projection = proj,
+    };
+    memcpy(context->state.ubo_matrices[context->swapchain.image_index], &mat_data, sizeof(UBOMatrices));
+}
+
+static void create_uniform_buffers(Context* context) {
+    VkDeviceSize buffer_size = sizeof(UBOMatrices);
+
+    for (size_t i = 0; i < max_frames_in_flight; ++i) {
+        context->state.ubo_buffers[i] = create_buffer(context,
+                                                     buffer_size,
+                                                     VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                                                     VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+        context->state.ubo_matrices[i] = (UBOMatrices*)context->state.ubo_buffers[i].info.pMappedData;
+    }
+}
+
+static void destroy_uniform_buffers(Context* context) {
+    for (size_t i = 0; i < max_frames_in_flight; ++i) {
+        auto buf = context->state.ubo_buffers[i];
+        vmaDestroyBuffer(context->vma_allocator, buf.handle, buf.allocation);
+    }
+}
+
+// TODO: Abstract pipeline creation.
+static void create_pipeline_skinned(Context* context) {
+    auto state = &context->state;
+
+    VkPushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(u32);
+    pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkPipelineLayoutCreateInfo layout_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &state->descriptor_set_layout,
         .pushConstantRangeCount = 1,
-        .pPushConstantRanges = &push_constant,
+        .pPushConstantRanges = &pushConstant,
     };
-    VK_CHECK(vkCreatePipelineLayout(context->device, &layout_info, nullptr, &state->pipeline_layout));
+    VK_CHECK(vkCreatePipelineLayout(context->device, &layout_info, nullptr, &state->skinned_pipeline.layout));
 
     // Define the vertex input binding description
     VkVertexInputBindingDescription binding_description = {
         .binding   = 0,
-        .stride    = sizeof(Vertex),
+        .stride    = sizeof(engine::asset::SkinnedVertex),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
     };
 
     // Define the vertex input attribute descriptions
-    std::array<VkVertexInputAttributeDescription, 1> attribute_descriptions = {{
-        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, position)},
-        //{.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
+    std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions = {{
+        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(engine::asset::SkinnedVertex, pos)},
+        {.location = 1, .binding = 0, .format = VK_FORMAT_R8G8B8A8_UINT, .offset = offsetof(engine::asset::SkinnedVertex, bone_indices)},
+        {.location = 2, .binding = 0, .format = VK_FORMAT_R8G8B8A8_UNORM, .offset = offsetof(engine::asset::SkinnedVertex, bone_weights)},
     }};
 
     // Create the vertex input state
@@ -979,8 +1154,162 @@ static void create_pipeline(Context* context) {
         .stencilTestEnable = VK_FALSE,
         .front = {},
         .back = {},
-        .minDepthBounds = 1.0f,
-        .maxDepthBounds = 0.0f,
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+    };
+
+    // No multisampling.
+    VkPipelineMultisampleStateCreateInfo multisample{
+        .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamic_state_info{
+        .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .dynamicStateCount = static_cast<uint32_t>(dynamic_states.size()),
+        .pDynamicStates    = dynamic_states.data()
+    };
+
+    // Load our SPIR-V shaders.
+    std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages = {{
+        {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = load_shader_module(context, "shaders/skinning_vert.spv"),
+            .pName  = "main"
+        },        // Vertex shader stage
+        {
+            .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+            .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = load_shader_module(context, "shaders/skinning_frag.spv"),
+            .pName  = "main"
+        }        // Fragment shader stage
+    }};
+
+    // Pipeline rendering info (for dynamic rendering).
+    VkPipelineRenderingCreateInfo pipeline_rendering_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+        .colorAttachmentCount = 1,
+        .pColorAttachmentFormats = &context->swapchain.surface_format.format,
+        .depthAttachmentFormat = context->state.depth_format,
+    };
+
+    // Create the graphics pipeline.
+    VkGraphicsPipelineCreateInfo pipe{
+        .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .pNext               = &pipeline_rendering_info,
+        .stageCount          = (u32)shader_stages.size(),
+        .pStages             = shader_stages.data(),
+        .pVertexInputState   = &vertex_input,
+        .pInputAssemblyState = &input_assembly,
+        .pViewportState      = &viewport,
+        .pRasterizationState = &raster,
+        .pMultisampleState   = &multisample,
+        .pDepthStencilState  = &depth_stencil,
+        .pColorBlendState    = &blend,
+        .pDynamicState       = &dynamic_state_info,
+        .layout              = state->skinned_pipeline.layout,
+        .renderPass          = VK_NULL_HANDLE,                 // Since we are using dynamic rendering this will set as null
+        .subpass             = 0,
+    };
+
+    VK_CHECK(vkCreateGraphicsPipelines(context->device, VK_NULL_HANDLE, 1, &pipe, nullptr, &state->skinned_pipeline.handle));
+
+    // Pipeline is baked, we can delete the shader modules now.
+    vkDestroyShaderModule(context->device, shader_stages[0].module, nullptr);
+    vkDestroyShaderModule(context->device, shader_stages[1].module, nullptr);
+}
+
+// From vulkan samples.
+static void create_pipeline(Context* context) {
+    auto state = &context->state;
+
+    VkPipelineLayoutCreateInfo layout_info = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &state->descriptor_set_layout,
+    };
+    VK_CHECK(vkCreatePipelineLayout(context->device, &layout_info, nullptr, &state->pipeline_layout));
+
+    // Define the vertex input binding description
+    VkVertexInputBindingDescription binding_description = {
+        .binding   = 0,
+        .stride    = sizeof(engine::asset::Vertex),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    // Define the vertex input attribute descriptions
+    std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions = {{
+        {.location = 0, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(engine::asset::Vertex, pos)},
+        {.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(engine::asset::Vertex, normal)},
+        {.location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(engine::asset::Vertex, uv)},
+    }};
+
+    // Create the vertex input state
+    VkPipelineVertexInputStateCreateInfo vertex_input = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount   = 1,
+        .pVertexBindingDescriptions      = &binding_description,
+        .vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size()),
+        .pVertexAttributeDescriptions    = attribute_descriptions.data()
+    };
+
+    // Specify we will use triangle lists to draw geometry.
+    VkPipelineInputAssemblyStateCreateInfo input_assembly = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE
+    };
+
+    // Specify rasterization state.
+    VkPipelineRasterizationStateCreateInfo raster = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .depthBiasEnable = VK_FALSE,
+        .lineWidth = 1.0f
+    };
+
+    // Specify that these states will be dynamic, i.e. not part of pipeline state object.
+    std::array<VkDynamicState, 5> dynamic_states = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_CULL_MODE,
+        VK_DYNAMIC_STATE_FRONT_FACE,
+        VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY
+    };
+
+    // Our attachment will write to all color channels, but no blending is enabled.
+    VkPipelineColorBlendAttachmentState blend_attachment = {
+        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+    };
+
+    VkPipelineColorBlendStateCreateInfo blend = {
+        .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .attachmentCount = 1,
+        .pAttachments    = &blend_attachment
+    };
+
+    // We will have one viewport and scissor box.
+    VkPipelineViewportStateCreateInfo viewport = {
+        .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .viewportCount = 1,
+        .scissorCount  = 1
+    };
+
+    VkCompareOp current_compare_op = VK_COMPARE_OP_GREATER_OR_EQUAL;
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+        .sType          = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = current_compare_op,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
     };
 
     // No multisampling.
@@ -1096,22 +1425,113 @@ static Slice<u8> read_entire_file_or_crash(Arena* arena, const char* path) {
     return buf;
 }
 
-static VkBuffer create_buffer(Context* context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryRequirements* requirements) {
-    VkBuffer buffer;
-    VkBufferCreateInfo create_info = {
+static Buffer create_buffer(Context* context,
+                            VkDeviceSize size,
+                            VkBufferUsageFlags usage,
+                            VmaAllocationCreateFlags vma_flags) {
+    VkBufferCreateInfo buffer_info = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .flags = 0,
         .size = size,
         .usage = usage,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    VK_CHECK(vkCreateBuffer(context->device, &create_info, nullptr, &buffer));
-    vkGetBufferMemoryRequirements(context->device, buffer, requirements);
+
+    VmaAllocationCreateInfo allocation_info = {
+        .flags = vma_flags,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+    };
+
+    Buffer buffer;
+    VK_CHECK(vmaCreateBuffer(context->vma_allocator, &buffer_info, &allocation_info, &buffer.handle, &buffer.allocation, &buffer.info));
     return buffer;
 }
 
+static void upload_vertices(Context* context, Buffer staging, const engine::asset::Header& header) {
+    // Static vertices
+    VkDeviceSize static_vertex_buffer_size = sizeof(engine::asset::Vertex) * header.num_static_vertices;
+    VkDeviceSize skinned_vertex_buffer_size = sizeof(engine::asset::SkinnedVertex) * header.num_skinned_vertices;
+    if (header.num_static_meshes != 0) {
+        context->state.static_vertex_buffer = create_buffer(
+            context,
+            static_vertex_buffer_size,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            0
+        );
+        VkBufferCopy region = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = static_vertex_buffer_size,
+        };
+        copy_buffer(context, context->state.static_vertex_buffer.handle, staging.handle, region);
+    }
+    // Skinned vertices
+    if (header.num_skinned_meshes != 0) {
+        context->state.skinned_vertex_buffer = create_buffer(
+            context,
+            skinned_vertex_buffer_size,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            0
+        );
+        VkBufferCopy region = {
+            .srcOffset = static_vertex_buffer_size,
+            .dstOffset = 0,
+            .size = skinned_vertex_buffer_size,
+        };
+        copy_buffer(context, context->state.skinned_vertex_buffer.handle, staging.handle, region);
+    }
+}
+
+static void upload_indices(Context* context, Buffer staging, const engine::asset::Header& header) {
+    VkDeviceSize buffer_size = sizeof(u16) * header.num_indices;
+    context->state.index_buffer = create_buffer(
+        context,
+        buffer_size,
+        VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        0
+    );
+
+    VkBufferCopy region = {
+        .srcOffset = engine::asset::get_index_asset_offset(header),
+        .dstOffset = 0,
+        .size = buffer_size,
+    };
+    copy_buffer(context, context->state.index_buffer.handle, staging.handle, region);
+}
+
+static void load_meshes(Context* context, const engine::asset::Header& header, platform::OSHandle file) {
+    context->state.static_meshes = arena_alloc<engine::asset::StaticMesh>(&context->scratch, header.num_static_meshes);
+    context->state.skinned_meshes = arena_alloc<engine::asset::SkinnedMesh>(&context->scratch, header.num_skinned_meshes);
+    context->state.mesh_transforms = arena_alloc<glm::mat4>(&context->scratch, header.num_static_meshes + header.num_skinned_meshes);
+
+    // Static
+    {
+        auto to_read = header.num_static_meshes * sizeof(engine::asset::StaticMesh);
+        auto size = platform::read_from_file(file, { .ptr = (u8*)context->state.static_meshes.ptr, .len = to_read } );
+        if (size != to_read) {
+            platform::fatal("Failed to read mesh metadata");
+        }
+    }
+    // Skinned
+    {
+        auto to_read = header.num_skinned_meshes * sizeof(engine::asset::SkinnedMesh);
+        auto size = platform::read_from_file(file, { .ptr = (u8*)context->state.skinned_meshes.ptr, .len = to_read } );
+        if (size != to_read) {
+            platform::fatal("Failed to read mesh metadata");
+        }
+    }
+}
+
+static void load_node_hierarchy(Context* context, const engine::asset::Header& header, platform::OSHandle file) {
+    context->state.node_hierarchy = arena_alloc<engine::asset::Node>(&context->scratch, header.num_nodes);
+    auto to_read = header.num_nodes * sizeof(engine::asset::Node);
+    auto size = platform::read_from_file(file, { .ptr = (u8*)context->state.node_hierarchy.ptr, .len = to_read } );
+    if (size != to_read) {
+        platform::fatal("Failed to read node hierarchy");
+    }
+}
+
+
 static void load_mesh_data(Context* context) {
-    const char* path = "tools/asset_processor/mesh_data.bin";
+    const char* path = "tools/asset_processor/mesh_data_new.bin";
 
     // Open file
     auto file = platform::open_file(path);
@@ -1120,64 +1540,44 @@ static void load_mesh_data(Context* context) {
     }
     defer { platform::close_file(file); };
 
+    // read asset header to CPU memory.
+    engine::asset::Header header;
+    auto size = platform::read_from_file(file, { .ptr = (u8*)&header, .len = sizeof(engine::asset::Header) });
+    if (size != sizeof(engine::asset::Header)) {
+        platform::fatal("Failed to read asset header");
+    }
+
+    load_meshes(context, header, file);
+    load_node_hierarchy(context, header, file);
+
     auto file_size = platform::get_file_size(file);
     assert(file_size != 0);
 
+    VkDeviceSize staging_size = engine::asset::total_size_of_assets(header);
+    u64 metadata_size = engine::asset::metadata_size(header);
+    if (staging_size + metadata_size != file_size) {
+        platform::fatal("Invalid size of asset file");
+    }
+
     // Allocate staging buffer
-    VkMemoryRequirements req;
-    VkBuffer staging_buffer = create_buffer(context, file_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &req);
-    defer { vkDestroyBuffer(context->device, staging_buffer, nullptr); };
+    Buffer staging = create_buffer(context,
+                                   file_size,
+                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                   VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+    defer { vmaDestroyBuffer(context->vma_allocator, staging.handle, staging.allocation); };
 
-    auto staging_mem = allocate(context, &req, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    defer { vkFreeMemory(context->device, staging_mem, nullptr); };
-
-    VK_CHECK(vkBindBufferMemory(context->device, staging_buffer, staging_mem, 0));
-
-    // Read file into staging buffer.
-    void* data_ptr;
-    VK_CHECK(vkMapMemory(context->device, staging_mem, 0, VK_WHOLE_SIZE, 0, &data_ptr));
     Slice<u8> buf = {
-        .ptr = (u8*)data_ptr,
+        .ptr = (u8*)staging.info.pMappedData,
         .len = file_size,
     };
-    auto size = platform::read_from_file(file, buf);
-    if (size != file_size) {
+
+    size = platform::read_from_file(file, buf);
+    if (size != staging_size) {
         platform::fatal(std::format("Failed to read entire file at path {}", path));
     }
 
-    context->state.tmp_mesh = *((Mesh*)data_ptr);
-    vkUnmapMemory(context->device, staging_mem);
-
-    // index buffer
-    {
-        VkDeviceSize buffer_size = sizeof(u16) * context->state.tmp_mesh.num_indices;
-        VkMemoryRequirements req;
-        context->state.index_buffer = create_buffer(context, buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, &req);
-        context->state.index_buffer_mem = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CHECK(vkBindBufferMemory(context->device, context->state.index_buffer, context->state.index_buffer_mem, 0));
-
-        VkBufferCopy region = {
-            .srcOffset = sizeof(Mesh),
-            .dstOffset = 0,
-            .size = buffer_size,
-        };
-        copy_buffer(context, context->state.index_buffer, staging_buffer, region);
-    }
-    // Create device vertex buffer
-    {
-        VkDeviceSize buffer_size = sizeof(Vertex) * context->state.tmp_mesh.num_vertices;
-        VkMemoryRequirements req;
-        context->state.vertex_buffer = create_buffer(context, buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, &req);
-        context->state.vertex_buffer_mem = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        VK_CHECK(vkBindBufferMemory(context->device, context->state.vertex_buffer, context->state.vertex_buffer_mem, 0));
-
-        VkBufferCopy region = {
-            .srcOffset = (context->state.tmp_mesh.num_indices * sizeof(u16)) + sizeof(Mesh),
-            .dstOffset = 0,
-            .size = buffer_size,
-        };
-        copy_buffer(context, context->state.vertex_buffer, staging_buffer, region);
-    }
+    upload_vertices(context, staging, header);
+    upload_indices(context, staging, header);
 }
 
 // From vulkan samples.
@@ -1259,7 +1659,7 @@ static void destroy_command_pools(Context* context) {
     }
 }
 
-static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matrix) {
+static void render_mesh(Context* context) {
     u32 current_image_index = context->swapchain.image_index;
     auto cmd = context->state.cmd_bufs[current_image_index];
 
@@ -1277,7 +1677,7 @@ static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matr
     };
 
     VkRect2D scissor = {
-        .offset = { .x = 0, .y = 0},
+        .offset = { .x = 0, .y = 0 },
         .extent = context->swapchain.extent,
     };
 
@@ -1345,21 +1745,19 @@ static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matr
         .pDepthAttachment  = &depth_attachment,
     };
 
+    bool draw_skinned_mesh = context->state.static_meshes.len == 0;
+
     vkCmdBeginRendering(cmd, &rendering_info);
 
     // Bind the graphics pipeline.
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.pipeline);
-
-    // Set push constants.
-    glm::mat4 proj = glm::perspective(glm::radians(90.0f), (f32)context->swapchain.extent.width / (f32)context->swapchain.extent.height, 0.1f, 100.0f);
-    proj[1][1] *= -1;
-
-    PushConstants pc = {
-        .model = glm::translate(glm::rotate(glm::mat4(1.0f), curr_time, glm::vec3(0.0f, 0.0f, 1.0f)), glm::vec3(0.0f, 0.0f, -1.0f)),
-        .view = view_matrix,
-        .projection = proj,
-    };
-    vkCmdPushConstants(cmd, context->state.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pc);
+    if (draw_skinned_mesh) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.skinned_pipeline.handle);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.skinned_pipeline.layout, 0, 1, &context->state.descriptor_sets[current_image_index], 0, nullptr);
+        vkCmdPushConstants(cmd, context->state.skinned_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(u32), &context->state.display_bone);
+    } else {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.pipeline);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, context->state.pipeline_layout, 0, 1, &context->state.descriptor_sets[current_image_index], 0, nullptr);
+    }
 
     // Set dynamic states
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -1368,7 +1766,7 @@ static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matr
     // Since we declared VK_DYNAMIC_STATE_CULL_MODE as dynamic in the pipeline,
     // we need to set the cull mode here. VK_CULL_MODE_NONE disables face culling,
     // meaning both front and back faces will be rendered.
-    vkCmdSetCullMode(cmd, VK_CULL_MODE_NONE);
+    vkCmdSetCullMode(cmd, VK_CULL_MODE_FRONT_BIT);
 
     // Since we declared VK_DYNAMIC_STATE_FRONT_FACE as dynamic,
     // we need to specify the winding order considered as the front face.
@@ -1383,11 +1781,14 @@ static void render_triangle(Context* context, f32 curr_time, glm::mat4 view_matr
 
     // Bind the vertex buffer
     VkDeviceSize offset = {0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &context->state.vertex_buffer, &offset);
-    vkCmdBindIndexBuffer(cmd, context->state.index_buffer, 0, VK_INDEX_TYPE_UINT16);
-
-    // Draw three vertices with one instance.
-    vkCmdDrawIndexed(cmd, context->state.tmp_mesh.num_indices, 1, 0, 0, 0);
+    vkCmdBindIndexBuffer(cmd, context->state.index_buffer.handle, 0, VK_INDEX_TYPE_UINT16);
+    if (draw_skinned_mesh) {
+        vkCmdBindVertexBuffers(cmd, 0, 1, &context->state.skinned_vertex_buffer.handle, &offset);
+        vkCmdDrawIndexed(cmd, context->state.skinned_meshes[0].num_indices, 1, context->state.skinned_meshes[0].base_index, context->state.skinned_meshes[0].base_vertex, 0);
+    } else {
+        vkCmdBindVertexBuffers(cmd, 0, 1, &context->state.static_vertex_buffer.handle, &offset);
+        vkCmdDrawIndexed(cmd, context->state.static_meshes[0].num_indices, 1, context->state.static_meshes[0].base_index, context->state.static_meshes[0].base_vertex, 0);
+    }
 
     // Complete rendering.
     vkCmdEndRendering(cmd);
@@ -1427,14 +1828,13 @@ static void create_depth_resources(Context* context) {
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    VK_CHECK(vkCreateImage(context->device, &image_create_info, nullptr, &context->state.depth_image));
+    VmaAllocationCreateInfo allocation_info = {
+        .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
 
-
-    VkMemoryRequirements req;
-    vkGetImageMemoryRequirements(context->device, context->state.depth_image, &req);
-
-    context->state.depth_image_memory = allocate(context, &req, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    VK_CHECK(vkBindImageMemory(context->device, context->state.depth_image, context->state.depth_image_memory, 0));
+    VK_CHECK(vmaCreateImage(context->vma_allocator, &image_create_info, &allocation_info, &context->state.depth_image, &context->state.depth_image_allocation, nullptr));
 
     VkImageViewCreateInfo view_create_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -1455,22 +1855,43 @@ static void create_depth_resources(Context* context) {
 
 static void destroy_depth_resources(Context* context) {
     vkDestroyImageView(context->device, context->state.depth_image_view, nullptr);
-    vkFreeMemory(context->device, context->state.depth_image_memory, nullptr);
-    vkDestroyImage(context->device, context->state.depth_image, nullptr);
+    vmaDestroyImage(context->vma_allocator, context->state.depth_image, context->state.depth_image_allocation);
+}
+
+static void create_texture_image(Context* context) {
+    (void)context;
 }
 
 void create_state_for_triangle(Context* context) {
     create_depth_resources(context);
     std::println("Created depth buffer");
 
+    create_uniform_buffers(context);
+    std::println("Created uniform buffers");
+
+    create_descriptor_set_layout(context);
+    std::println("Created descriptor set layout");
+
+    create_descriptor_pool(context);
+    std::println("Created descriptor pool");
+
+    create_descriptor_sets(context);
+    std::println("Created descriptor sets");
+
     create_pipeline(context);
     std::println("Created pipeline");
+
+    create_pipeline_skinned(context);
+    std::println("Created skinned pipeline");
 
     create_command_pool_and_buffers(context);
     std::println("Created command pool");
 
     load_mesh_data(context);
     std::println("Created and uploaded mesh data");
+
+    traverse_node_hierarchy(context, context->state.node_hierarchy[0], glm::mat4(1.0f));
+    std::println("Updated transforms. TODO: Do this every frame");
 }
 
 static void destroy_temp_state(Context* context) {
@@ -1479,20 +1900,32 @@ static void destroy_temp_state(Context* context) {
     // Depth buffer.
     destroy_depth_resources(context);
 
-    // Vertex buffer
-    vkDestroyBuffer(context->device, context->state.vertex_buffer, nullptr);
-    vkFreeMemory(context->device, context->state.vertex_buffer_mem, nullptr);
+    // Vertex buffers
+    vmaDestroyBuffer(context->vma_allocator, context->state.static_vertex_buffer.handle, context->state.static_vertex_buffer.allocation);
+    vmaDestroyBuffer(context->vma_allocator, context->state.skinned_vertex_buffer.handle, context->state.skinned_vertex_buffer.allocation);
 
     // Index buffer
-    vkDestroyBuffer(context->device, context->state.index_buffer, nullptr);
-    vkFreeMemory(context->device, context->state.index_buffer_mem, nullptr);
+    vmaDestroyBuffer(context->vma_allocator, context->state.index_buffer.handle, context->state.index_buffer.allocation);
 
     // Command pools
     destroy_command_pools(context);
 
+    // Descriptor pool
+    vkDestroyDescriptorPool(context->device, context->state.descriptor_pool, nullptr);
+
+    // Descriptor set layout
+    vkDestroyDescriptorSetLayout(context->device, context->state.descriptor_set_layout, nullptr);
+
+    // Uniform buffers.
+    destroy_uniform_buffers(context);
+
     // Pipeline
     vkDestroyPipeline(context->device, context->state.pipeline, nullptr);
     vkDestroyPipelineLayout(context->device, context->state.pipeline_layout, nullptr);
+
+    // Skinned Pipeline
+    vkDestroyPipeline(context->device, context->state.skinned_pipeline.handle, nullptr);
+    vkDestroyPipelineLayout(context->device, context->state.skinned_pipeline.layout, nullptr);
     std::println("Destroyed temp state");
 }
 

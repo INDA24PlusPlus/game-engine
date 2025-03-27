@@ -51,6 +51,14 @@
             .url = "git+https://github.com/ocornut/imgui.git#v1.91.9b-docking",
             .hash = "N-V-__8AACbncwDdHLMz3EkS8iDHirtmHehU_FWTuKnmd9ik",
         },
+        .vulkan_memory_allocator = .{
+            .url = "git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git#v3.2.1",
+            .hash = "N-V-__8AACOiQQCH6JM50mv9I_Xqx_HKTGzgXT4fWe4YtwFQ",
+        },
+        .tracy = .{
+            .url = "git+https://github.com/wolfpld/tracy.git#v0.11.1",
+            .hash = "N-V-__8AAMeOlQEipHjcyu0TCftdAi9AQe7EXUDJOoVe0k-t",
+        },
     },
     .paths = .{
         "build.zig",
