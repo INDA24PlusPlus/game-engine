@@ -1,7 +1,7 @@
 #include "imgui.h"
 #include <iostream>
 
-#include "other-dir/error.h"
+#include "utils/logging.h"
 
 int main() {
     std::cout << "Hello, World!\n";
