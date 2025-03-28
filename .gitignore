@@ -1,0 +1,13 @@
+*
+
+!src/
+!src/**
+
+!submodules/
+!submodules/*
+
+!.gitignore
+!.clang-tidy
+!LICENSE
+!start.sh
+!*.md
