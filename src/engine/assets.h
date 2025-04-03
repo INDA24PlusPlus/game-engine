@@ -2,18 +2,31 @@
 #define _ASSETS_H
 
 #include "core.h"
+#include "arena.h"
+#include "platform.h"
+#include <glm/gtc/quaternion.hpp>
 #include <glm/glm.hpp>
 
 namespace engine::asset {
 
 struct Header {
+    u32 cpu_asset_size;
+    u32 gpu_asset_size;
     u32 num_static_meshes;
     u32 num_skinned_meshes;
+    u32 num_bones;
+    u32 num_nodes;
+    u32 num_animations;
+    u32 num_channels; // Must be same as num bones.
+    u32 num_translations;
+    u32 num_scalings;
+    u32 num_rotations;
+    u32 num_global_inverse_matrices;
+
+
     u32 num_static_vertices;
     u32 num_skinned_vertices;
     u32 num_indices;
-    u32 num_bones;
-    u32 num_nodes;
 };
 
 struct StaticMesh {
@@ -51,6 +64,41 @@ struct BoneData {
     glm::mat4 final;
 };
 
+struct Animation {
+    f32 duration;
+    f32 ticks_per_second;
+    u32 channel_index;
+    u32 channel_count;
+};
+
+
+struct TranslationKey {
+    glm::vec3 translation;
+    f32 time;
+};
+
+struct ScaleKey {
+    glm::vec3 scale;
+    f32 time;
+};
+
+struct RotationKey {
+    glm::quat rotation;
+    f32 time;
+};
+
+struct NodeAnim {
+    u32 is_identity;
+    u32 translation_index;
+    u32 num_translations;
+
+    u32 scaling_index;
+    u32 num_scalings;
+
+    u32 rotation_index;
+    u32 num_rotations;
+};
+
 struct Node {
     enum class Kind {
         none,
@@ -79,41 +127,43 @@ struct NodeHandle {
     void* handle;
 };
 
-static u64 total_size_of_assets(const Header& header) {
-    return sizeof(IndexType) * header.num_indices
-         + sizeof(Vertex) * header.num_static_vertices
-         + sizeof(SkinnedVertex) * header.num_skinned_vertices;
+struct AssetPack {
+    Slice<StaticMesh> static_meshes;
+    Slice<SkinnedMesh> skinned_meshes;
+    Slice<Node> nodes;
+    Slice<BoneData> bone_data;
+    Slice<Animation> animations;
+    Slice<NodeAnim> animation_channels;
+    Slice<TranslationKey> translation_keys;
+    Slice<ScaleKey> scaling_keys;
+    Slice<RotationKey> rotation_keys;
+    Slice<glm::mat4> global_inverse_matrices;
+};
+
+struct AssetLoader {
+    struct GPUPointers {
+        Vertex* static_vertices;
+        SkinnedVertex* skinned_vertices;
+        IndexType* indices;
+    };
+
+    platform::OSHandle file;
+    Header header;
+
+    void init(const char* path);
+    void deinit();
+
+    u64 static_vertices_size();
+    u64 skinned_vertices_size();
+    u64 indices_size();
+    u64 gpu_data_size();
+
+    u64 offset_to_indics();
+
+    AssetPack load_cpu_data(Arena* arena);
+    void load_gpu_data(Slice<u8> staging_buffer);
+};
+
 }
 
-static u64 get_static_mesh_offset(const Header& header) {
-    (void)header;
-    return sizeof(Header);
-}
-
-static u64 get_skinned_mesh_offset(const Header& header) {
-    return get_static_mesh_offset(header) + header.num_static_meshes * sizeof(StaticMesh);
-}
-
-static u64 get_node_offset(const Header& header) {
-    return get_skinned_mesh_offset(header) + header.num_skinned_meshes * sizeof(SkinnedMesh);
-}
-
-static u64 metadata_size(const Header& header) {
-    return get_node_offset(header) + header.num_nodes * sizeof(Node);
-}
-
-static u64 get_static_vertex_asset_offset(const Header& header) {
-    (void)header;
-    return 0;
-}
-
-static u64 get_skinned_vertex_asset_offset(const Header& header) {
-    return get_static_vertex_asset_offset(header) + sizeof(Vertex) * header.num_static_vertices;
-}
-
-static u64 get_index_asset_offset(const Header& header) {
-    return get_skinned_vertex_asset_offset(header) + sizeof(SkinnedVertex) * header.num_skinned_vertices;
-}
-
-}
 #endif

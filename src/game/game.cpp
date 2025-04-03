@@ -16,7 +16,6 @@ void start(State& state, platform::WindowInfo window_info) {
     state.kb.reset();
 
     state.renderer_context = renderer::initialize("Vulkan renderer", width, height, window_info);
-    renderer::create_state_for_triangle(state.renderer_context);
 }
 
 void shutdown(State& state) {
@@ -77,7 +76,7 @@ b32 update(State& state, f32 delta_time) {
 
     // Don't present if the window is minimized
     if (width != 0 && height != 0) {
-        auto present_state = renderer::present(state.renderer_context, state.curr_time, state.camera.view_matrix());
+        auto present_state = renderer::present(state.renderer_context, state.camera.view_matrix(), state.curr_time);
         if (present_state == renderer::PresentState::suboptimal) {
             renderer::resize_swapchain(state.renderer_context, width, height);
         }
