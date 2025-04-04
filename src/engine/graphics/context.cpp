@@ -11,7 +11,6 @@
 
 #include <print>
 #include <optional>
-#include <winnt.h>
 
 namespace renderer {
 
@@ -90,7 +89,7 @@ void Context::deinit() {
     }
 
     state.deinit(this);
-    vmaDestroyAllocator(vma_allocator); 
+    vmaDestroyAllocator(vma_allocator);
 
     vkDestroyDevice(device, nullptr);
     vkDestroySurfaceKHR(instance, surface, nullptr);
@@ -1105,10 +1104,10 @@ static glm::quat lerp_animation_rotation(Context* context, const engine::asset::
 static void traverse_node_hierarchy(Context* context, engine::asset::Node& node, const glm::mat4& parent_transform, f32 curr_time) {
     auto global_transform = parent_transform * node.transform;
 
-    if (node.kind == engine::asset::Node::Kind::bone) { 
+    if (node.kind == engine::asset::Node::Kind::bone) {
         // For now we only do the first animation.
         const auto& animation = context->state.animation_data[0];
-        engine::asset::BoneData& bone_data = context->state.bone_data[node.bone_index];
+        auto& bone_data = context->state.bone_data[node.bone_index];
 
         f32 time_in_ticks = curr_time * animation.ticks_per_second;
         //f32 animation_time = fmodf(time_in_ticks, animation.duration);

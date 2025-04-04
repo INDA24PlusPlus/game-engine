@@ -26,6 +26,11 @@ set(WIN32_SOURCES
     ${GAME_SOURCE_FILES}
 )
 
+set(LINUX_SOURCES
+    src/engine/linux_main.cpp
+    src/engine/linux_platform.cpp
+)
+
 set(COMMON_COMPILE_FLAGS -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function)
 
 option(DISABLE_BOUNDS_CHECKS "Disables bounds checking for user created types" OFF)
@@ -34,6 +39,12 @@ option(ENABLE_TRACY "Build with support for profiling with the tracy profiler" O
 if(DISABLE_BOUNDS_CHECKS)
     target_compile_definitions(vulkan_renderer PRIVATE DISABLE_BOUNDS_CHECKS)
 endif()
+
+FetchContent_Declare(
+    glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG 3.4
+)
 
 FetchContent_Declare(
     vulkan_headers
@@ -67,7 +78,12 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(vulkan_headers volk glm vulkan_memory_allocator tracy)
 
-add_executable(vulkan_renderer ${WIN32_SOURCES})
+if(WIN32)
+    add_executable(vulkan_renderer ${WIN32_SOURCES})
+else()
+    add_executable(vulkan_renderer ${LINUX_SOURCES})
+endif()
+
 target_include_directories(vulkan_renderer PRIVATE src)
 
 target_include_directories(vulkan_renderer PRIVATE ${vulkan_headers_SOURCE_DIR}/include)
@@ -75,28 +91,31 @@ target_include_directories(vulkan_renderer PRIVATE ${vulkan_headers_SOURCE_DIR}/
 if(WIN32)
     set(VULKAN_PLATFORM_DEFINE "VK_USE_PLATFORM_WIN32_KHR")
 else()
-    message(FATAL_ERROR "Unsupported OS")
+    set(VULKAN_PLATFORM_DEFINE "VK_USE_PLATFORM_WAYLAND_KHR")
 endif()
+
+target_include_directories(vulkan_renderer PRIVATE ${glfw_SOURCE_DIR}/include)
 
 target_include_directories(vulkan_renderer PRIVATE ${volk_SOURCE_DIR})
 target_compile_definitions(vulkan_renderer PRIVATE ${VULKAN_PLATFORM_DEFINE})
 target_sources(vulkan_renderer PRIVATE ${volk_SOURCE_DIR}/volk.c)
 
 target_include_directories(vulkan_renderer PRIVATE ${glm_SOURCE_DIR})
+target_link_libraries(vulkan_renderer PRIVATE glfw)
 
-target_include_directories(vulkan_renderer PRIVATE 
+target_include_directories(vulkan_renderer PRIVATE
     ${vulkan_memory_allocator_SOURCE_DIR}/include
     ${vulkan_memory_allocator_SOURCE_DIR}/src
 )
-target_sources(vulkan_renderer PRIVATE 
-    ${vulkan_memory_allocator_SOURCE_DIR}/src/VmaUsage.cpp
-)
+# target_sources(vulkan_renderer PRIVATE
+#     ${vulkan_memory_allocator_SOURCE_DIR}/src/VmaUsage.cpp
+# )
 
 target_include_directories(vulkan_renderer PRIVATE ${tracy_SOURCE_DIR}/public)
 if(ENABLE_TRACY)
     target_compile_definitions(vulkan_renderer PRIVATE TRACY_ENABLE)
     target_sources(vulkan_renderer PRIVATE ${tracy_SOURCE_DIR}/public/TracyClient.cpp)
-    
+
     if(WIN32)
         target_link_libraries(vulkan_renderer PRIVATE ws2_32 dbghelp)
     else()
