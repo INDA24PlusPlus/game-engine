@@ -8,6 +8,9 @@ if [ "$1" = "c" ] ; then  # (re)compile everything
 	cmake -D CMAKE_BUILD_TYPE=Debug ..
 	make
     exit
+elif [ "$1" = "tidy" ]; then # run clang-tidy
+    find "$(dirname $0)/src" -iname '*.h' -o -iname '*.cpp' | xargs clang-format -i
+    exit
 fi
 
 set -e
