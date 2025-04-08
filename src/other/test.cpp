@@ -1,5 +1,3 @@
 #include "utils/logging.h"
 
-void test() {
-  INFO("Hello from test!");
-}
+void test() { INFO("Hello from test!"); }
