@@ -18,7 +18,9 @@ Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progre
         exit(1);
     }
     glEnable(GL_DEPTH_TEST);
-    glCullFace(GL_FRONT_FACE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);  
 }
 
 void Renderer::make_resources_for_scene(const Scene& scene) {
