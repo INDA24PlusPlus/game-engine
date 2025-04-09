@@ -6,6 +6,8 @@
 !tools/**
 !assets/
 !assets/**
+!vendor/
+!vendor/**
 
 build
 .cache
