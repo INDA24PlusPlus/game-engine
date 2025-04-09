@@ -6,12 +6,11 @@
 #include "Camera.h"
 #include "core.h"
 
-
 namespace engine {
 
-class Renderer  {
-public:
-    typedef void* (*LoadProc)(const char *name);
+class Renderer {
+   public:
+    typedef void* (*LoadProc)(const char* name);
     Renderer(LoadProc load_proc);
     Renderer() = delete;
 
@@ -21,8 +20,10 @@ public:
     void clear();
     void begin_pass(const Camera& camera, u32 width, u32 height);
     void end_pass();
-    void draw_mesh(const Scene& scene, MeshHandle mesh);
-private:
+    void draw_mesh(const Scene& scene, MeshHandle mesh,
+                   const glm::mat4& transform = glm::mat4(1.0f));
+
+   private:
     u32 load_shader(const char* path, u32 shader_type);
 
     bool m_scene_loaded;
@@ -35,6 +36,6 @@ private:
     u32 m_pipeline;
 };
 
-}
+}  // namespace engine
 
 #endif
