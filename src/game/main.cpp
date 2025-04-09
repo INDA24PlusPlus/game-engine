@@ -107,7 +107,7 @@ int main(void)
         // keyboard input
         if(input.is_key_just_pressed(GLFW_KEY_ESCAPE)){
             state.mouse_locked = !state.mouse_locked;
-            glfwSetInputMode(window, GLFW_CURSOR, state.mouse_locked ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+            glfwSetInputMode(window, GLFW_CURSOR, state.mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
 
         glm::vec3 direction(0.0f);
@@ -126,7 +126,7 @@ int main(void)
         }
 
         // mouse input
-        if(!state.mouse_locked){
+        if(state.mouse_locked){
             glm::vec2 mouse_delta = input.get_mouse_position_delta();
             state.camera.rotate(-mouse_delta.x * state.sensitivity, -mouse_delta.y * state.sensitivity);
         }
