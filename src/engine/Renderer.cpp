@@ -89,7 +89,7 @@ void Renderer::end_pass() {
 }
 
 void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle) {
-    // FIXME: Do the actually draw calls in end_pass
+    // FIXME: Do the actual draw calls in end_pass
     const auto& mesh = scene.m_meshes[mesh_handle.get_value()];
     const auto& transform = scene.m_global_node_transforms[mesh.node_index];
     glProgramUniformMatrix4fv(m_vshader, 0, 1, GL_FALSE, glm::value_ptr(transform));

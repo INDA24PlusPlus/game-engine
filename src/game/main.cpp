@@ -7,7 +7,9 @@
 #include "engine/utils/logging.h"
 #include "engine/core.h"
 #include "engine/Renderer.h"
-#include "engine/Camera.h"
+
+#include "state.h"
+#include "gui.h"
 
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -24,15 +26,6 @@ static void error_callback(int error, const char* description) {
    ERROR("GLFW error with code {}: {}", error, description);
 }
 
-struct State {
-    engine::Camera camera;
-    bool mouse_locked;
-
-    f32 prev_time;
-    f32 curr_time;
-    f32 delta_time;
-    f32 sensitivity;
-};
 
 static void process_input(State& state, GLFWwindow* window, engine::Camera& camera, float delta_time) {
     static bool esc_pressed = false;
@@ -112,16 +105,15 @@ int main(void) {
 
     glfwMakeContextCurrent(window);
 
-    engine::Renderer renderer((engine::Renderer::LoadProc)glfwGetProcAddress);
-    engine::Scene scene;
-    scene.load_asset_file("scene_data.bin");
-    scene.compute_global_node_transforms();
-    renderer.make_resources_for_scene(scene);
-
     State state;
     state.camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
     state.mouse_locked = true;
     state.sensitivity = 0.001f;
+
+    engine::Renderer renderer((engine::Renderer::LoadProc)glfwGetProcAddress);
+    state.scene.load_asset_file("scene_data.bin");
+    renderer.make_resources_for_scene(state.scene);
+
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -134,29 +126,36 @@ int main(void) {
     glViewport(0, 0, width, height);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    auto helmet_mesh = scene.mesh_from_name("SciFiHelmet");
-    auto sponza_mesh = scene.mesh_from_name("Sponza");
+    gui::init(window, content_scale);
 
+    auto helmet_mesh = state.scene.mesh_from_name("SciFiHelmet");
+    auto sponza_mesh = state.scene.mesh_from_name("Sponza");
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
         state.curr_time = glfwGetTime();
         state.delta_time = state.curr_time - state.prev_time;
 
+        // Update
         glfwPollEvents();
         glfwGetFramebufferSize(window, &width, &height);
         if (width == 0 || height == 0) {
             continue;
         }
 
-        process_input(state, window, state.camera, state.delta_time);
-
         glfwPollEvents();
+        process_input(state, window, state.camera, state.delta_time);
+        state.scene.compute_global_node_transforms();
+        gui::build(state);
+
+        // Draw
         renderer.clear();
         renderer.begin_pass(state.camera, width, height);
-        renderer.draw_mesh(scene, helmet_mesh);
-        renderer.draw_mesh(scene, sponza_mesh);
+        renderer.draw_mesh(state.scene, helmet_mesh);
+        renderer.draw_mesh(state.scene, sponza_mesh);
         renderer.end_pass();
+
+        gui::render();
 
         glfwSwapBuffers(window);
     }

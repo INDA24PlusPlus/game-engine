@@ -57,6 +57,8 @@ void Scene::load_asset_file(const char* path) {
 
     u64 bytes_read = (u64)(ptr - m_asset_file_mem.data());
     assert(bytes_read == m_asset_file_mem.size() && "Things in asset file that we did not read?");
+
+    m_global_node_transforms.resize(m_nodes.size());
 }
 
 MeshHandle Scene::mesh_from_name(std::string name) {
@@ -69,7 +71,6 @@ MeshHandle Scene::mesh_from_name(std::string name) {
 
 
 void Scene::compute_global_node_transforms() {
-    m_global_node_transforms.resize(m_nodes.size());
     for (u32 root_node_index : m_root_nodes) {
         calc_global_node_transform(NodeHandle(root_node_index), glm::mat4(1.0f));
     }
