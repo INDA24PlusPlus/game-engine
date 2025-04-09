@@ -1,0 +1,11 @@
+Model Information:
+* title:	Fire Monster
+* source:	https://sketchfab.com/3d-models/fire-monster-dae15e29dffd4b2eaeebbd9b0cb85b24
+* author:	dartuchiwa (https://sketchfab.com/dartuchiwa)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Fire Monster" (https://sketchfab.com/3d-models/fire-monster-dae15e29dffd4b2eaeebbd9b0cb85b24) by dartuchiwa (https://sketchfab.com/dartuchiwa) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
