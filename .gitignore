@@ -9,6 +9,9 @@
 !vendor/
 !vendor/**
 
+!shaders/
+!shaders/**
+
 build
 .cache
 
