@@ -9,6 +9,11 @@
 #include "engine/Renderer.h"
 #include "engine/Input.h"
 
+#include "glm/ext/quaternion_common.hpp"
+#include "glm/ext/quaternion_float.hpp"
+#include "glm/ext/quaternion_geometric.hpp"
+#include "glm/fwd.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include "state.h"
 #include "gui.h"
 
@@ -112,6 +117,8 @@ int main(void)
 
         glm::vec3 direction(0.0f);
 
+        
+
         if (input.is_key_pressed(GLFW_KEY_W))
             direction.z += 1.0f;
         if (input.is_key_pressed(GLFW_KEY_S))
@@ -122,7 +129,37 @@ int main(void)
             direction.x += 1.0f;
 
         if (glm::length(direction) > 0) {
-            state.camera.move(glm::normalize(direction), state.delta_time);
+            if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+                state.camera.move(glm::normalize(direction), state.delta_time);
+            }
+            else {
+                
+                
+                auto forward = state.camera.m_orientation * glm::vec3(0, 0, -1);
+                auto right = state.camera.m_orientation * glm::vec3(1, 0, 0);
+                forward.y = 0;
+                right.y = 0;
+                
+                forward = glm::normalize(forward);
+                right = glm::normalize(right);
+                auto movement = (right * direction.x + forward * direction.z) * state.camera.m_speed * state.delta_time;
+                state.scene.m_nodes[1].translation += movement;
+                
+                glm::quat target_rotation = glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
+                
+                state.scene.m_nodes[1].rotation = glm::slerp(state.scene.m_nodes[1].rotation, target_rotation, state.delta_time * 8.0f);
+                
+                // camera movement
+                
+                
+                //glm::quat camera_target_rotation = glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
+                //state.camera.m_orientation = glm::slerp(state.camera.m_orientation, camera_target_rotation, state.delta_time);
+                //state.camera.m_pos = state.scene.m_nodes[1].translation + state.camera.m_orientation * glm::vec3(0,0,10);
+                glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
+                glm::vec3 camera_target_position = state.scene.m_nodes[1].translation + camera_offset;
+                state.camera.m_pos = glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
+                state.camera.m_orientation = glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
+            }
         }
 
         // mouse input
