@@ -16,6 +16,7 @@ struct AssetImporter {
 
     // Maps the GLTF files node indices to our own.
     std::unordered_map<u32, u32> m_node_map;
+    std::unordered_map<std::string, u32> m_mesh_names;
 
     std::vector<u8> m_indices;
     std::vector<Vertex> m_vertices;
@@ -24,6 +25,7 @@ struct AssetImporter {
 
     std::vector<Node> m_nodes;
     std::vector<u32> m_root_nodes;
+
     void load_asset(std::string path);
     void load_indices(const tinygltf::Model& model, const tinygltf::Accessor accessor);
     void load_vertices(const tinygltf::Model& model, const tinygltf::Primitive prim);

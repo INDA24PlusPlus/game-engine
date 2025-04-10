@@ -40,12 +40,13 @@ void Scene::load_asset_file(const char* path) {
 
     u8* ptr = m_asset_file_mem.data() + sizeof(AssetHeader);
 
-    m_indices = read_asset_data<u32>(ptr, header->num_indices);
+    m_indices = read_asset_data<u8>(ptr, header->num_indices);
     m_vertices = read_asset_data<Vertex>(ptr, header->num_vertices);
     m_meshes = read_asset_data<Mesh>(ptr, header->num_meshes);
     m_primitives = read_asset_data<Primitive>(ptr, header->num_primitives);
     m_nodes = read_asset_data<Node>(ptr, header->num_nodes);
     m_root_nodes = read_asset_data<u32>(ptr, header->num_root_nodes);
+    read_mesh_names(ptr);
 
     u64 bytes_read = (u64)(ptr - m_asset_file_mem.data());
     if (bytes_read != m_asset_file_mem.size()) {
@@ -68,6 +69,20 @@ MeshHandle Scene::mesh_from_name(std::string name) {
 void Scene::compute_global_node_transforms() {
     for (u32 root_node_index : m_root_nodes) {
         calc_global_node_transform(NodeHandle(root_node_index), glm::mat4(1.0f));
+    }
+}
+
+void Scene::read_mesh_names(u8*& ptr) {
+    u32 num_names_read = 0;
+    while (num_names_read < m_meshes.size()) {
+        u32 name_length = *(u32*)ptr;
+        ptr += 4;
+        auto name = std::string((char*)ptr, name_length);
+        ptr += name_length;
+        MeshHandle handle = *(MeshHandle*)ptr;
+        m_names_to_mesh[name] = handle;
+        ptr += 4;
+        ++num_names_read;
     }
 }
 

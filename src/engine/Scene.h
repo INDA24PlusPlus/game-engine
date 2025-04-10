@@ -64,7 +64,7 @@ struct AssetHeader {
 class Scene {
 public:
     // Loaded from disk
-    std::span<u32> m_indices;
+    std::span<u8> m_indices;
     std::span<Vertex> m_vertices;
     std::span<Mesh> m_meshes;
     std::span<Primitive> m_primitives;
@@ -72,13 +72,14 @@ public:
     std::span<Node> m_nodes;
     std::span<u32> m_root_nodes;
 
-    // Computed
+    // Compute
     std::vector<glm::mat4> m_global_node_transforms;
 
     void load_asset_file(const char* path);
     void compute_global_node_transforms();
     MeshHandle mesh_from_name(std::string name);
 private:
+    void read_mesh_names(u8*& ptr);
     void calc_global_node_transform(NodeHandle node_handle, const glm::mat4& parent_transform);
     std::vector<u8> m_asset_file_mem;
     std::unordered_map<std::string, MeshHandle> m_names_to_mesh;

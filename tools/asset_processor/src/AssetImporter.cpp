@@ -15,7 +15,7 @@
 #include "../../../src/engine/utils/logging.h"
 
 template <typename T>
-static void dump_accessor(std::vector<T>& out, const tinygltf::Model& model,
+static void dump_accessor(std::span<T>& out, const tinygltf::Model& model,
                           const tinygltf::Accessor& accessor) {
     const auto& buffer_view = model.bufferViews[accessor.bufferView];
     const auto& buffer = model.buffers[buffer_view.buffer];
@@ -59,8 +59,13 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
     }
 
     u32 num_elements = size_in_bytes / sizeof(T);
+    u32 start = out.size();
+
+    
     out.resize(out.size() + num_elements);
-    dump_accessor(out, model, accessor);
+    std::span<T> out_span(&out[start], num_elements);
+
+    dump_accessor(out_span, model, accessor);
     INFO("------------- Dumped accessor -------------");
 }
 
@@ -96,6 +101,17 @@ void AssetImporter::load_meshes(const tinygltf::Model& model) {
 
     for (size_t i = 0; i < model.meshes.size(); i++) {
         const auto& mesh = model.meshes[i];
+        if (mesh.name.size() == 0 || mesh.name.empty()) {
+            ERROR("Mesh {} has no name", i);
+            exit(1);
+        }
+
+        if (m_mesh_names.find(mesh.name) != m_mesh_names.end()) {
+            ERROR("Mesh name {} is already used.", mesh.name);
+            exit(1);
+        }
+
+        m_mesh_names[mesh.name] = m_meshes.size();
         u32 prim_index = m_primitives.size();
 
         for (const auto& prim : mesh.primitives) {
@@ -107,6 +123,7 @@ void AssetImporter::load_meshes(const tinygltf::Model& model) {
             .num_primitives = (u32)mesh.primitives.size(),
             .node_index = UINT32_MAX,
         });
+
         INFO("Parsed mesh");
     }
 }
@@ -158,8 +175,12 @@ void AssetImporter::load_vertices(const tinygltf::Model& model, const tinygltf::
     const auto& uv_accessor = model.accessors[prim.attributes.at("TEXCOORD_0")];
 
     std::vector<glm::vec3> pos;
+    pos.reserve(pos_accessor.count);
     std::vector<glm::vec3> normal;
+    normal.reserve(normal_accessor.count);
     std::vector<glm::vec2> uv;
+    uv.reserve(uv_accessor.count);
+
     dump_accessor_append(pos, model, pos_accessor);
     dump_accessor_append(normal, model, normal_accessor);
     dump_accessor_append(uv, model, uv_accessor);
@@ -189,7 +210,7 @@ void AssetImporter::load_nodes(const tinygltf::Model& model) {
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
         u32 our_node_index = m_nodes.size();
         m_nodes.resize(m_nodes.size() + 1);
-        load_node(model, scene.nodes[i], our_node_index);
+        load_node(model, scene.nodes[i], our_node_index - m_base_node);
         m_root_nodes.push_back(our_node_index);
     }
 }
