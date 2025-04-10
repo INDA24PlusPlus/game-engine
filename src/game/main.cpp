@@ -83,8 +83,8 @@ int main(void) {
 
     gui::init(window, content_scale);
 
-    engine::MeshHandle helmet_mesh = engine::MeshHandle(0);
-    engine::MeshHandle sponza_mesh = engine::MeshHandle(1);
+    engine::MeshHandle helmet_mesh = state.scene.mesh_from_name("SciFiHelmet");
+    engine::MeshHandle sponza_mesh = state.scene.mesh_from_name("Sponza");
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
