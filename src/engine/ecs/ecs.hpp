@@ -4,6 +4,7 @@
 #include "entity.hpp"
 #include "component.hpp"
 #include "system.hpp"
+#include <cstdio>
 
 class ECS {
     public:
