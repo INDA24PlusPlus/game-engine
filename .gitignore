@@ -12,15 +12,17 @@
 !shaders/
 !shaders/**
 
-build
-.cache
-
 !submodules/
 !submodules/*
 !CMakeLists.txt
 
+!LICENSE
 !.gitignore
 !.clang-tidy
-!LICENSE
+!.clang-format
+
+!CMakeLists.txt
 !start.sh
+
 !*.md
+!*.pdf

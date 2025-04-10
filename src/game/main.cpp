@@ -14,11 +14,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-template<class... Args>
-void fatal(std::format_string<Args...> fmt, Args&&... args) {
-    ERROR(fmt, std::forward<Args>(args)...);
-    exit(1);
-}
+#define FATAL(fmt, ...) ERROR(fmt, ##__VA_ARGS__); exit(1);
 
 static void error_callback(int error, const char* description) {
    ERROR("GLFW error with code {}: {}", error, description);
@@ -84,7 +80,7 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 int main(void) {
 	if (!glfwInit()) {
-	   fatal("Failed to initiliaze glfw");
+	   FATAL("Failed to initiliaze glfw");
 	}
 	INFO("Initialized GLFW");
 	glfwSetErrorCallback(error_callback);
@@ -107,7 +103,7 @@ int main(void) {
     f32 content_scale = std::max(content_x_scale, content_y_scale);
     auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale, "Skeletal Animation", nullptr, nullptr);
     if (!window) {
-       fatal("Failed to create glfw window");
+       FATAL("Failed to create glfw window");
     }
 
     glfwMakeContextCurrent(window);
