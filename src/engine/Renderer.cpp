@@ -10,13 +10,39 @@
 
 #include "utils/logging.h"
 
+
 namespace engine {
+
+static void APIENTRY glDebugOutput(GLenum source, 
+                            GLenum type, 
+                            unsigned int id, 
+                            GLenum severity, 
+                            GLsizei length, 
+                            const char *message, 
+                            const void *userParam)
+{
+    (void)source;
+    (void)id;
+    (void)severity;
+    (void)length;
+    (void)userParam;
+    (void)type;
+    // ignore non-significant error/warning codes
+    if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
+    ERROR("OpenGL debug output: {}", message);
+}
+
 
 Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progress{false} {
     if (!gladLoadGLLoader((GLADloadproc)load_proc)) {
         ERROR("Failed to load OpenGL function pointers");
         exit(1);
     }
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -26,7 +52,6 @@ Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progre
 void Renderer::make_resources_for_scene(const Scene& scene) {
     assert(!m_scene_loaded);
     glCreateVertexArrays(1, &m_vao);
-    glVertexArrayElementBuffer(m_vao, m_ibo);
 
     glCreateBuffers(1, &m_ibo);
     glNamedBufferStorage(m_ibo, sizeof(u32) * scene.m_indices.size(), scene.m_indices.data(), 0);

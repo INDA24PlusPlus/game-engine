@@ -26,12 +26,13 @@ FetchContent_Declare(
     GIT_TAG 1.0.1
 )
 
-set(CMAKE_CXX_STANDARD 17)
+# KTX seems to only build on C++17
 message(NOTICE "Fetching LibKTX from https://github.com/KhronosGroup/KTX-Software ...")
 set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "Build KTX as a static library" FORCE)
 set(KTX_FEATURE_TOOLS OFF CACHE BOOL "")
 set(KTX_FEATURE_DOC OFF CACHE BOOL "")
 set(KTX_FEATURE_TESTS OFF CACHE BOOL "")
+set(KTX_FEATURE_VK_UPLOAD OFF CACHE BOOL "")
 
 FetchContent_Declare(
     ktx
@@ -40,6 +41,11 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(glm tinygltf ktx)
+
+set_target_properties(ktx PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
 
 add_executable(asset_processor ${SOURCE_FILES})
 set_target_properties(asset_processor PROPERTIES

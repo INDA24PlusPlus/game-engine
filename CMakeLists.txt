@@ -38,26 +38,7 @@ FetchContent_Declare(
     GIT_TAG 3.4
 )
 
-# KTX seems to only build on C++17
-message(NOTICE "Fetching LibKTX from https://github.com/KhronosGroup/KTX-Software ...")
-set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "Build KTX as a static library" FORCE)
-set(KTX_FEATURE_TOOLS OFF CACHE BOOL "")
-set(KTX_FEATURE_DOC OFF CACHE BOOL "")
-set(KTX_FEATURE_TESTS OFF CACHE BOOL "")
-set(KTX_FEATURE_VK_UPLOAD OFF CACHE BOOL "")
-
-FetchContent_Declare(
-    ktx
-    GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
-    GIT_TAG v4.4.0
-)
-
-FetchContent_MakeAvailable(glm glfw imgui ktx)
-
-set_target_properties(ktx PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED ON
-)
+FetchContent_MakeAvailable(glm glfw imgui)
 
 add_executable(game_engine ${SOURCE_FILES})
 set_target_properties(game_engine PROPERTIES
@@ -65,10 +46,6 @@ set_target_properties(game_engine PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 target_include_directories(game_engine PRIVATE src)
-
-# KTX
-target_link_libraries(game_engine PRIVATE ktx)
-target_include_directories(game_engine PRIVATE ${ktx_SOURCE_DIR}/include)
 
 # GLM
 target_include_directories(game_engine PRIVATE ${glm_SOURCE_DIR})
