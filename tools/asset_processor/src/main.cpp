@@ -28,7 +28,6 @@ int main(int argc, const char** argv) {
     header.num_primitives = importer.m_primitives.size();
     header.num_nodes = importer.m_nodes.size();
     header.num_root_nodes = importer.m_root_nodes.size();
-    header.num_name_bytes = importer.m_name_data.size();
 
     std::ofstream out_file("scene_data.bin", std::ios::binary);
 
@@ -41,9 +40,6 @@ int main(int argc, const char** argv) {
     write_data(importer.m_primitives, out_file, num_bytes_written);
     write_data(importer.m_nodes, out_file, num_bytes_written);
     write_data(importer.m_root_nodes, out_file, num_bytes_written);
-
-    write_data(importer.m_mesh_name_indices, out_file, num_bytes_written);
-    write_data(importer.m_name_data, out_file, num_bytes_written);
     INFO("wrote {} bytes", num_bytes_written + sizeof(AssetHeader));
 
     out_file.flush();

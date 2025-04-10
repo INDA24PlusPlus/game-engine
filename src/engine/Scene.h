@@ -33,8 +33,14 @@ struct Mesh {
 struct Primitive {
     u32 base_vertex;
     u32 num_vertices;
-    u32 base_index;
-    u32 num_indices;
+    u32 indices_start;
+    u32 indices_end;
+    u32 index_type;
+
+    inline u32 num_indices() const {
+        u32 len = indices_end - indices_start;
+        return len / (index_type - 5121);
+    }
 };
 
 struct Node {

@@ -97,8 +97,8 @@ void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle, const glm::
 
     for (size_t i = 0; i < mesh.num_primitives; ++i) {
         const auto& prim = scene.m_primitives[mesh.primitive_index + i];
-        glDrawElementsBaseVertex(GL_TRIANGLES, prim.num_indices, GL_UNSIGNED_INT,
-                                 (void*)(sizeof(u32) * prim.base_index), prim.base_vertex);
+        glDrawElementsBaseVertex(GL_TRIANGLES, prim.num_indices(), prim.index_type,
+                                 (void*)prim.indices_start, prim.base_vertex);
     }
 }
 

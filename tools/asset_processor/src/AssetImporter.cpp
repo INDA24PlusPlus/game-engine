@@ -5,7 +5,6 @@
 #include <cstring>
 #include <string>
 #include <tiny_gltf.h>
-#include <stb_image.h>
 
 #include "glm/fwd.hpp"
 
@@ -15,12 +14,63 @@
 
 #include "../../../src/engine/utils/logging.h"
 
+template <typename T>
+static void dump_accessor(std::vector<T>& out, const tinygltf::Model& model,
+                          const tinygltf::Accessor& accessor) {
+    const auto& buffer_view = model.bufferViews[accessor.bufferView];
+    const auto& buffer = model.buffers[buffer_view.buffer];
+    auto data = buffer.data.data() + buffer_view.byteOffset + accessor.byteOffset;
+    auto stride = accessor.ByteStride(buffer_view);
+
+    if (buffer_view.byteStride == 0) {
+        INFO("Accessor data is tightly packed, using memcpy");
+        std::memcpy(out.data(), data, out.size() * sizeof(T));
+        return;
+    }
+
+    INFO("Accessor data is not tightly packed. Copying with respect to stride");
+    for (size_t i = 0; i < accessor.count; i++) {
+        out[i] = *(T*)(data + stride * i);
+    }
+}
+
+template <typename T>
+static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& model,
+                                 const tinygltf::Accessor& accessor,
+                                 bool allow_size_mismatch = false) {
+    INFO("------------- Dumping accessor... -------------");
+    assert(accessor.type > 0);
+    u32 accessor_comp_size = tinygltf::GetComponentSizeInBytes(accessor.componentType);
+    u32 accessor_num_comp = tinygltf::GetNumComponentsInType(accessor.type);
+    u32 accessor_elem_size = accessor_num_comp * accessor_comp_size;
+    u32 size_in_bytes = accessor.count * accessor_elem_size;
+
+    INFO("Num accessor elems: {}", accessor.count);
+    INFO("Accesor comp size: {}", accessor_comp_size);
+    INFO("Accesor num comp in elem: {}", accessor_num_comp);
+    INFO("Accessor elem size: {}", accessor_elem_size);
+    INFO("Accessor size in bytes: {}", size_in_bytes);
+
+    INFO("allow size mismatch?: {}", allow_size_mismatch);
+    if (sizeof(T) != accessor_elem_size && !allow_size_mismatch) {
+        ERROR("Provided type has size of {} but accessor element size is {}", sizeof(T),
+              accessor_elem_size);
+        exit(1);
+    }
+
+    u32 num_elements = size_in_bytes / sizeof(T);
+    out.resize(out.size() + num_elements);
+    dump_accessor(out, model, accessor);
+    INFO("------------- Dumped accessor -------------");
+}
+
 void AssetImporter::load_asset(std::string path) {
+    m_base_node = m_nodes.size();
     m_base_mesh = m_meshes.size();
-    m_base_root_node = m_root_nodes.size();
 
     tinygltf::Model model;
     tinygltf::TinyGLTF gltf;
+    gltf.RemoveImageLoader();
     std::string err;
     std::string warn;
 
@@ -37,25 +87,15 @@ void AssetImporter::load_asset(std::string path) {
         ERROR("Failed to parse the given asset file: {}", path);
         return;
     }
-    INFO("Successfully parsed asset file {}", path);
-
-    INFO("Beginning extraction process...");
     load_meshes(model);
-    INFO("Successfully extracted mesh data.");
-
-    u32 base_node = load_nodes(model);
-    // For later...
-    (void)base_node;
-    INFO("Loaded nodes");
+    load_nodes(model);
 }
 
 void AssetImporter::load_meshes(const tinygltf::Model& model) {
-    INFO("GLTF model has {} meshes", model.meshes.size());
+    assert(model.meshes.size() != 0);
 
     for (size_t i = 0; i < model.meshes.size(); i++) {
         const auto& mesh = model.meshes[i];
-        INFO("Extracting mesh {} with {} primitives", mesh.name, mesh.primitives.size());
-
         u32 prim_index = m_primitives.size();
 
         for (const auto& prim : mesh.primitives) {
@@ -64,20 +104,10 @@ void AssetImporter::load_meshes(const tinygltf::Model& model) {
 
         m_meshes.push_back({
             .primitive_index = prim_index,
-            .num_primitives = (u32)m_primitives.size() - prim_index,
+            .num_primitives = (u32)mesh.primitives.size(),
             .node_index = UINT32_MAX,
         });
-
-        m_mesh_name_indices.push_back(m_name_data.size());
-        std::string name = mesh.name;
-
-        if (mesh.name.size() == 0) {
-            name = "untitled" + std::to_string(m_meshes.size());
-        }
-
-        for (size_t i = 0; i < mesh.name.size(); i++) {
-            m_name_data.push_back(name[i]);
-        }
+        INFO("Parsed mesh");
     }
 }
 
@@ -85,53 +115,105 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
     assert(prim.indices >= 0);
 
     u32 base_vertex = m_vertices.size();
-    u32 base_index = m_indices.size();
+    u32 indices_start = m_indices.size();
 
     const auto& indices_accessor = model.accessors[prim.indices];
-    load_indices(model, indices_accessor);
+    if (indices_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT &&
+        indices_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+        ERROR("Primitive has invalid index buffer type. Only u32 and u16 are allowed.");
+        exit(1);
+    }
+
+    dump_accessor_append(m_indices, model, indices_accessor, true);
     load_vertices(model, prim);
 
-    // We added no static vertices, must be skinned primitive.
+    u32 indices_end = m_indices.size();
+
     m_primitives.push_back({
         .base_vertex = base_vertex,
         .num_vertices = (u32)m_vertices.size() - base_vertex,
-        .base_index = base_index,
-        .num_indices = (u32)m_indices.size() - base_index,
+        .indices_start = indices_start,
+        .indices_end = indices_end,
+        .index_type = (u32)indices_accessor.componentType,
     });
+    INFO("Parsed primitive");
+}
+
+void AssetImporter::load_vertices(const tinygltf::Model& model, const tinygltf::Primitive prim) {
+    if (prim.attributes.find("POSITION") == prim.attributes.end()) {
+        ERROR("Primitive is missing POSITION attribute");
+        exit(1);
+    }
+    if (prim.attributes.find("NORMAL") == prim.attributes.end()) {
+        ERROR("Primitive is missing NORMAL attribute");
+        exit(1);
+    }
+    if (prim.attributes.find("TEXCOORD_0") == prim.attributes.end()) {
+        ERROR("Primitive is missing TEXCOORD_0 attribute");
+        exit(1);
+    }
+
+    const auto& pos_accessor = model.accessors[prim.attributes.at("POSITION")];
+    const auto& normal_accessor = model.accessors[prim.attributes.at("NORMAL")];
+    const auto& uv_accessor = model.accessors[prim.attributes.at("TEXCOORD_0")];
+
+    std::vector<glm::vec3> pos;
+    std::vector<glm::vec3> normal;
+    std::vector<glm::vec2> uv;
+    dump_accessor_append(pos, model, pos_accessor);
+    dump_accessor_append(normal, model, normal_accessor);
+    dump_accessor_append(uv, model, uv_accessor);
+
+    // glTF spec mandates this, but just to make sure.
+    assert(pos.size() == normal.size() && pos.size() == uv.size());
+    for (size_t i = 0; i < pos.size(); i++) {
+        m_vertices.push_back({
+            .pos = pos[i],
+            .normal = normal[i],
+            .uv = uv[i],
+        });
+    }
+}
+
+void AssetImporter::load_nodes(const tinygltf::Model& model) {
+    if (model.scenes.size() == 0) {
+        ERROR("glTF model has no scenes!");
+        exit(1);
+    }
+    if (model.defaultScene == -1) {
+        ERROR("glTF model has no default scene");
+        exit(1);
+    }
+
+    const auto& scene = model.scenes[model.defaultScene];
+    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+        u32 our_node_index = m_nodes.size();
+        m_nodes.resize(m_nodes.size() + 1);
+        load_node(model, scene.nodes[i], our_node_index);
+        m_root_nodes.push_back(our_node_index);
+    }
 }
 
 glm::mat4 to_glm(const std::vector<double>& matrix) {
-    return glm::mat4(
-        matrix[0], matrix[1], matrix[2], matrix[3],
-        matrix[4], matrix[5], matrix[6], matrix[7],
-        matrix[8], matrix[9], matrix[10], matrix[11],
-        matrix[12], matrix[13], matrix[14], matrix[15]
-    );
+    return glm::mat4(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
+                     matrix[7], matrix[8], matrix[9], matrix[10], matrix[11], matrix[12],
+                     matrix[13], matrix[14], matrix[15]);
 }
 
-u32 AssetImporter::load_nodes(const tinygltf::Model& model) {
-    const auto& scene = model.scenes[model.defaultScene];
-    u32 base_node = m_nodes.size();
-    m_nodes.reserve(base_node + model.nodes.size());
-    m_nodes.resize(base_node + 1);
-
-    m_root_nodes.push_back(m_base_root_node + 0);
-    load_node(base_node, 0, scene.nodes[0], model.nodes);
-    for (size_t i = 1; i < scene.nodes.size(); ++i) {
-        u32 root_node_index = m_nodes.size();
-        m_nodes.push_back({});
-        m_root_nodes.push_back(root_node_index);
-        load_node(base_node, root_node_index - base_node, scene.nodes[i], model.nodes);
+void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
+                              u32 our_node_index) {
+    const auto& gltf_node = model.nodes[gltf_node_index];
+    INFO("--------- Loading glTF node {} ----------", gltf_node_index);
+    INFO("Node has {} children", gltf_node.children.size());
+    if (m_node_map.find(m_base_node + gltf_node_index) != m_node_map.end()) {
+        ERROR(
+            "An attmept was made parse the same gltf node twice. Either the model is malformed or "
+            "there is a bug in our loader!");
+        exit(1);
     }
+    m_node_map[m_base_node + gltf_node_index] = m_base_node + our_node_index;
 
-    return base_node;
-}
-
-void AssetImporter::load_node(u32 base_node, u32 node_index, u32 gltf_node_index, std::span<const tinygltf::Node> nodes) {
-    m_node_map[base_node + gltf_node_index] = base_node + node_index;
-    const auto& gltf_node = nodes[gltf_node_index];
-
-    auto& our_node = m_nodes[base_node + node_index];
+    auto& our_node = m_nodes[m_base_node + our_node_index];
     our_node = {
         .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
         .child_index = (u32)m_nodes.size(),
@@ -140,114 +222,34 @@ void AssetImporter::load_node(u32 base_node, u32 node_index, u32 gltf_node_index
     };
 
     if (gltf_node.mesh != -1) {
-        m_meshes[m_base_mesh + gltf_node.mesh].node_index = base_node + node_index;
+        m_meshes[m_base_mesh + gltf_node.mesh].node_index = m_base_node + our_node_index;
+        INFO("Node references mesh {}", gltf_node.mesh);
     }
 
     if (gltf_node.scale.size() != 0) {
-        our_node.scale = glm::vec3(
-            gltf_node.scale[0],
-            gltf_node.scale[1],
-            gltf_node.scale[2]
-        );
+        our_node.scale = glm::vec3(gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2]);
     }
     if (gltf_node.rotation.size() != 0) {
-        our_node.rotation = glm::quat(
-            gltf_node.rotation[3],
-            gltf_node.rotation[0],
-            gltf_node.rotation[1],
-            gltf_node.rotation[2]
-        );
+        our_node.rotation = glm::quat(gltf_node.rotation[3], gltf_node.rotation[0],
+                                      gltf_node.rotation[1], gltf_node.rotation[2]);
     }
     if (gltf_node.translation.size() != 0) {
-        our_node.translation = glm::vec3(
-            gltf_node.translation[0],
-            gltf_node.translation[1],
-            gltf_node.translation[2]
-        );
+        our_node.translation =
+            glm::vec3(gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2]);
     }
 
     if (gltf_node.matrix.size()) {
-        DEBUG("Has matrix, skin is {}", gltf_node.skin);
         auto mat = to_glm(gltf_node.matrix);
 
         glm::vec3 skew;
         glm::vec4 perspective;
-        bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation, our_node.translation, skew, perspective);
+        bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation,
+                                            our_node.translation, skew, perspective);
         assert(did_decompose);
     }
 
     m_nodes.resize(m_nodes.size() + our_node.num_children);
     for (size_t i = 0; i < our_node.num_children; i++) {
-        load_node(base_node, our_node.child_index + i, gltf_node.children[i], nodes);
+        load_node(model, gltf_node.children[i], our_node.child_index + i);
     }
-}
-
-void AssetImporter::load_vertices(const tinygltf::Model& model, const tinygltf::Primitive prim) {
-    assert(prim.attributes.find("POSITION") != prim.attributes.end());
-    assert(prim.attributes.find("NORMAL") != prim.attributes.end());
-
-    auto base_vertex = m_vertices.size();
-
-    const auto& pos_accessor = model.accessors[prim.attributes.at("POSITION")];
-    const auto& normal_accessor = model.accessors[prim.attributes.at("NORMAL")];
-    m_vertices.resize(base_vertex + pos_accessor.count);
-
-    AccessorIterator it;
-    it.init(model, pos_accessor);
-
-    glm::vec3 pos;
-    while (it.next(pos)) {
-        m_vertices[base_vertex + it.index - 1].pos = pos;
-    }
-
-    it.init(model, normal_accessor);
-    glm::vec3 normal;
-    while (it.next(normal)) {
-        m_vertices[base_vertex + it.index - 1].normal = normal;
-    }
-
-    if (prim.attributes.find("TEXCOORD_1") != prim.attributes.end()) {
-        WARN("Current GLTF file has more then one set of texture coordinates. I currently only support one set of texture coordinates. Contact Vidar if you really need this changed");
-    }
-
-
-    if (prim.attributes.find("TEXCOORD_0") != prim.attributes.end()) {
-        const auto& uv_accessor = model.accessors[prim.attributes.at("TEXCOORD_0")];
-        it.init(model, uv_accessor);
-        glm::vec2 uv;
-        while (it.next(uv)) {
-            m_vertices[base_vertex + it.index - 1].uv = uv;
-        }
-    } else WARN("No suitable texture coordinates found on primtive. Using garbage values.");
-}
-
-void AssetImporter::load_indices(const tinygltf::Model& model, const tinygltf::Accessor accessor) {
-    auto base_index = m_indices.size();
-    m_indices.resize(m_indices.size() + accessor.count);
-
-    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-        AccessorIterator it;
-        it.init(model, accessor);
-
-        u16 value;
-        while (it.next(value)) {
-            m_indices[base_index + it.index - 1] = value;
-        }
-    } else if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
-        AccessorIterator it;
-        it.init(model, accessor);
-        u32 value;
-        while (it.next(value)) {
-            m_indices[base_index + it.index - 1] = value;
-        }
-    } else assert(0);
-}
-
-void AccessorIterator::init(const tinygltf::Model& model, const tinygltf::Accessor& accessor) {
-    const auto& buffer_view = model.bufferViews[accessor.bufferView];
-    const auto& buffer = model.buffers[buffer_view.buffer];
-    data = buffer.data.data() + buffer_view.byteOffset + accessor.byteOffset;
-    stride = accessor.ByteStride(buffer_view);
-    count = accessor.count;
-    index = 0;
 }

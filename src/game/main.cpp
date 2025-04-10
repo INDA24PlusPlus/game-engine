@@ -83,8 +83,8 @@ int main(void) {
 
     gui::init(window, content_scale);
 
-    auto helmet_mesh = state.scene.mesh_from_name("SciFiHelmet");
-    auto sponza_mesh = state.scene.mesh_from_name("Sponza");
+    engine::MeshHandle helmet_mesh = engine::MeshHandle(0);
+    engine::MeshHandle sponza_mesh = engine::MeshHandle(1);
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
@@ -115,34 +115,38 @@ int main(void) {
         if (glm::length(direction) > 0) {
             if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
                 state.camera.move(glm::normalize(direction), state.delta_time);
-            }
-            else {
-                
-                
+            } else {
                 auto forward = state.camera.m_orientation * glm::vec3(0, 0, -1);
                 auto right = state.camera.m_orientation * glm::vec3(1, 0, 0);
                 forward.y = 0;
                 right.y = 0;
-                
+
                 forward = glm::normalize(forward);
                 right = glm::normalize(right);
-                auto movement = (right * direction.x + forward * direction.z) * state.camera.m_speed * state.delta_time;
+                auto movement = (right * direction.x + forward * direction.z) *
+                                state.camera.m_speed * state.delta_time;
                 state.scene.m_nodes[1].translation += movement;
-                
-                glm::quat target_rotation = glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
-                
-                state.scene.m_nodes[1].rotation = glm::slerp(state.scene.m_nodes[1].rotation, target_rotation, state.delta_time * 8.0f);
-                
+
+                glm::quat target_rotation =
+                    glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
+
+                state.scene.m_nodes[1].rotation = glm::slerp(
+                    state.scene.m_nodes[1].rotation, target_rotation, state.delta_time * 8.0f);
+
                 // camera movement
-                
-                
-                //glm::quat camera_target_rotation = glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
-                //state.camera.m_orientation = glm::slerp(state.camera.m_orientation, camera_target_rotation, state.delta_time);
-                //state.camera.m_pos = state.scene.m_nodes[1].translation + state.camera.m_orientation * glm::vec3(0,0,10);
+
+                // glm::quat camera_target_rotation = glm::quatLookAt(glm::normalize(movement),
+                // glm::vec3(0, 1, 0)); state.camera.m_orientation =
+                // glm::slerp(state.camera.m_orientation, camera_target_rotation, state.delta_time);
+                // state.camera.m_pos = state.scene.m_nodes[1].translation +
+                // state.camera.m_orientation * glm::vec3(0,0,10);
                 glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                glm::vec3 camera_target_position = state.scene.m_nodes[1].translation + camera_offset;
-                state.camera.m_pos = glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
-                state.camera.m_orientation = glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
+                glm::vec3 camera_target_position =
+                    state.scene.m_nodes[1].translation + camera_offset;
+                state.camera.m_pos =
+                    glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
+                state.camera.m_orientation =
+                    glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
             }
         }
 
@@ -161,7 +165,8 @@ int main(void) {
         renderer.clear();
         renderer.begin_pass(state.camera, width, height);
         renderer.draw_mesh(state.scene, helmet_mesh);
-        renderer.draw_mesh(state.scene, helmet_mesh, glm::translate(glm::mat4(1.0f), glm::vec3(0, 2, 0)));
+        renderer.draw_mesh(state.scene, helmet_mesh,
+                           glm::translate(glm::mat4(1.0f), glm::vec3(0, 2, 0)));
         renderer.draw_mesh(state.scene, sponza_mesh);
         renderer.end_pass();
 
