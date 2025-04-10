@@ -6,9 +6,13 @@
 !submodules/
 !submodules/*
 
+!LICENSE
 !.gitignore
 !.clang-tidy
 !.clang-format
-!LICENSE
+
+!CMakeLists.txt
 !start.sh
+
 !*.md
+!*.pdf
