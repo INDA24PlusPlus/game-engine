@@ -14,7 +14,7 @@ set(SOURCE_FILES
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
     src/engine/Scene.cpp
-    src/engine/input.cpp
+    src/engine/Input.cpp
     vendor/glad/src/glad.c
 )
 

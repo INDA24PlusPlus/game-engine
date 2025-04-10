@@ -1,47 +1,36 @@
-#include <algorithm>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <print>
 
-#include "engine/Scene.h"
-#include "engine/utils/logging.h"
-#include "engine/core.h"
-#include "engine/Renderer.h"
 #include "engine/Input.h"
+#include "engine/Renderer.h"
+#include "engine/Scene.h"
+#include "engine/core.h"
+#include "engine/utils/logging.h"
 
-#include "glm/ext/quaternion_common.hpp"
-#include "glm/ext/quaternion_float.hpp"
-#include "glm/ext/quaternion_geometric.hpp"
-#include "glm/fwd.hpp"
-#include "glm/gtc/quaternion.hpp"
-#include "state.h"
 #include "gui.h"
-
+#include "state.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
 template <class... Args>
-void fatal(std::format_string<Args...> fmt, Args&&... args)
-{
+void fatal(std::format_string<Args...> fmt, Args &&...args) {
     ERROR(fmt, std::forward<Args>(args)...);
     exit(1);
 }
 
-static void error_callback(int error, const char* description)
-{
+static void error_callback(int error, const char *description) {
     ERROR("GLFW error with code {}: {}", error, description);
 }
 
-static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
+static void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     (void)window;
     glViewport(0, 0, width, height);
 }
 
-int main(void)
-{
+int main(void) {
     if (!glfwInit()) {
         fatal("Failed to initiliaze glfw");
     }
@@ -64,7 +53,8 @@ int main(void)
 #endif
 
     f32 content_scale = std::max(content_x_scale, content_y_scale);
-    auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale, "Skeletal Animation", nullptr, nullptr);
+    auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale, "Skeletal Animation",
+                                   nullptr, nullptr);
     if (!window) {
         fatal("Failed to create glfw window");
     }
@@ -81,7 +71,6 @@ int main(void)
     state.scene.load_asset_file("scene_data.bin");
     state.scene.compute_global_node_transforms();
     renderer.make_resources_for_scene(state.scene);
-
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -110,23 +99,18 @@ int main(void)
         }
 
         // keyboard input
-        if(input.is_key_just_pressed(GLFW_KEY_ESCAPE)){
+        if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
             state.mouse_locked = !state.mouse_locked;
-            glfwSetInputMode(window, GLFW_CURSOR, state.mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+            glfwSetInputMode(window, GLFW_CURSOR,
+                             state.mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
         }
 
         glm::vec3 direction(0.0f);
 
-        
-
-        if (input.is_key_pressed(GLFW_KEY_W))
-            direction.z += 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_S))
-            direction.z -= 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_A))
-            direction.x -= 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_D))
-            direction.x += 1.0f;
+        if (input.is_key_pressed(GLFW_KEY_W)) direction.z += 1.0f;
+        if (input.is_key_pressed(GLFW_KEY_S)) direction.z -= 1.0f;
+        if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
+        if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
 
         if (glm::length(direction) > 0) {
             if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
@@ -163,11 +147,12 @@ int main(void)
         }
 
         // mouse input
-        if(state.mouse_locked){
+        if (state.mouse_locked) {
             glm::vec2 mouse_delta = input.get_mouse_position_delta();
-            state.camera.rotate(-mouse_delta.x * state.sensitivity, -mouse_delta.y * state.sensitivity);
+            state.camera.rotate(-mouse_delta.x * state.sensitivity,
+                                -mouse_delta.y * state.sensitivity);
         }
-        
+
         glfwPollEvents();
         state.scene.compute_global_node_transforms();
         gui::build(state);
@@ -176,6 +161,7 @@ int main(void)
         renderer.clear();
         renderer.begin_pass(state.camera, width, height);
         renderer.draw_mesh(state.scene, helmet_mesh);
+        renderer.draw_mesh(state.scene, helmet_mesh, glm::translate(glm::mat4(1.0f), glm::vec3(0, 2, 0)));
         renderer.draw_mesh(state.scene, sponza_mesh);
         renderer.end_pass();
 
