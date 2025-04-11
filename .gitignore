@@ -17,9 +17,8 @@
 !CMakeLists.txt
 
 !LICENSE
-!.gitignore
-!.clang-tidy
-!.clang-format
+!.git*
+!.clang-*
 
 !CMakeLists.txt
 !start.sh
