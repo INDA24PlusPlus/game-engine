@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <tiny_gltf.h>
+#include <print>
 
 #include "glm/fwd.hpp"
 
@@ -60,7 +61,6 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
 
     u32 num_elements = size_in_bytes / sizeof(T);
     u32 start = out.size();
-
     
     out.resize(out.size() + num_elements);
     std::span<T> out_span(&out[start], num_elements);
@@ -75,7 +75,6 @@ void AssetImporter::load_asset(std::string path) {
 
     tinygltf::Model model;
     tinygltf::TinyGLTF gltf;
-    gltf.RemoveImageLoader();
     std::string err;
     std::string warn;
 
@@ -132,6 +131,13 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
     assert(prim.indices >= 0);
 
     u32 base_vertex = m_vertices.size();
+
+    // OpenGL requires that the offsets to index buffers are aligned to
+    // their respective index type and so we just align everything to 4 bytes.
+    while (m_indices.size() % 4 != 0) {
+        m_indices.push_back(0);
+    }
+
     u32 indices_start = m_indices.size();
 
     const auto& indices_accessor = model.accessors[prim.indices];
@@ -210,8 +216,15 @@ void AssetImporter::load_nodes(const tinygltf::Model& model) {
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
         u32 our_node_index = m_nodes.size();
         m_nodes.resize(m_nodes.size() + 1);
-        load_node(model, scene.nodes[i], our_node_index - m_base_node);
+        load_node(model, scene.nodes[i], our_node_index);
         m_root_nodes.push_back(our_node_index);
+    }
+
+    for (size_t i = 0; i < m_mesh_names.size(); ++i) {
+        if (m_meshes[i].node_index == UINT32_MAX) {
+            ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
+            exit(1);
+        }
     }
 }
 
@@ -223,6 +236,7 @@ glm::mat4 to_glm(const std::vector<double>& matrix) {
 
 void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
                               u32 our_node_index) {
+
     const auto& gltf_node = model.nodes[gltf_node_index];
     INFO("--------- Loading glTF node {} ----------", gltf_node_index);
     INFO("Node has {} children", gltf_node.children.size());
@@ -232,9 +246,9 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
             "there is a bug in our loader!");
         exit(1);
     }
-    m_node_map[m_base_node + gltf_node_index] = m_base_node + our_node_index;
+    m_node_map[m_base_node + gltf_node_index] = our_node_index;
 
-    auto& our_node = m_nodes[m_base_node + our_node_index];
+    auto& our_node = m_nodes[our_node_index];
     our_node = {
         .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
         .child_index = (u32)m_nodes.size(),
@@ -243,7 +257,7 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
     };
 
     if (gltf_node.mesh != -1) {
-        m_meshes[m_base_mesh + gltf_node.mesh].node_index = m_base_node + our_node_index;
+        m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
         INFO("Node references mesh {}", gltf_node.mesh);
     }
 
@@ -269,8 +283,10 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
         assert(did_decompose);
     }
 
+    // After we resize we can no longer use the alias 'our_node'
     m_nodes.resize(m_nodes.size() + our_node.num_children);
-    for (size_t i = 0; i < our_node.num_children; i++) {
-        load_node(model, gltf_node.children[i], our_node.child_index + i);
+
+    for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
+        load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
     }
 }

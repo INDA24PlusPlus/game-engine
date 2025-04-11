@@ -54,7 +54,7 @@ void Renderer::make_resources_for_scene(const Scene& scene) {
     glCreateVertexArrays(1, &m_vao);
 
     glCreateBuffers(1, &m_ibo);
-    glNamedBufferStorage(m_ibo, sizeof(u32) * scene.m_indices.size(), scene.m_indices.data(), 0);
+    glNamedBufferStorage(m_ibo, scene.m_indices.size(), scene.m_indices.data(), 0);
     glVertexArrayElementBuffer(m_vao, m_ibo);
 
     glCreateBuffers(1, &m_vbo);
@@ -122,8 +122,11 @@ void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle, const glm::
 
     for (size_t i = 0; i < mesh.num_primitives; ++i) {
         const auto& prim = scene.m_primitives[mesh.primitive_index + i];
-        glDrawElementsBaseVertex(GL_TRIANGLES, prim.num_indices(), prim.index_type,
-                                 (void*)prim.indices_start, prim.base_vertex);
+        auto num_indices = prim.num_indices();
+        u64 byte_offset = prim.indices_start;
+
+        glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type,
+                                 (void*)byte_offset, prim.base_vertex);
     }
 }
 

@@ -60,6 +60,7 @@ void Scene::load_asset_file(const char* path) {
 
 MeshHandle Scene::mesh_from_name(std::string name) {
     if (m_names_to_mesh.find(name) == m_names_to_mesh.end()) {
+        ERROR("{} is not a valid mesh!", name);
         return MeshHandle(UINT32_MAX);
     }
 
