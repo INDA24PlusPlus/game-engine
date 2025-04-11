@@ -10,29 +10,57 @@
 
 #include "utils/logging.h"
 
+
 namespace engine {
+
+static void APIENTRY glDebugOutput(GLenum source, 
+                            GLenum type, 
+                            unsigned int id, 
+                            GLenum severity, 
+                            GLsizei length, 
+                            const char *message, 
+                            const void *userParam)
+{
+    (void)source;
+    (void)id;
+    (void)severity;
+    (void)length;
+    (void)userParam;
+    (void)type;
+    // ignore non-significant error/warning codes
+    if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
+    ERROR("OpenGL debug output: {}", message);
+}
+
 
 Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progress{false} {
     if (!gladLoadGLLoader((GLADloadproc)load_proc)) {
         ERROR("Failed to load OpenGL function pointers");
         exit(1);
     }
+
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(glDebugOutput, nullptr);
+
     glEnable(GL_DEPTH_TEST);
-    glCullFace(GL_FRONT_FACE);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 }
 
 void Renderer::make_resources_for_scene(const Scene& scene) {
     assert(!m_scene_loaded);
     glCreateVertexArrays(1, &m_vao);
-    glVertexArrayElementBuffer(m_vao, m_ibo);
 
     glCreateBuffers(1, &m_ibo);
     glNamedBufferStorage(m_ibo, sizeof(u32) * scene.m_indices.size(), scene.m_indices.data(), 0);
     glVertexArrayElementBuffer(m_vao, m_ibo);
 
     glCreateBuffers(1, &m_vbo);
-    glNamedBufferStorage(m_vbo, sizeof(Vertex) * scene.m_vertices.size(), scene.m_vertices.data(), 0);
-        
+    glNamedBufferStorage(m_vbo, sizeof(Vertex) * scene.m_vertices.size(), scene.m_vertices.data(),
+                         0);
+
     u32 vertex_buffer_index = 0;
     glVertexArrayVertexBuffer(m_vao, vertex_buffer_index, m_vbo, 0, sizeof(Vertex));
 
@@ -86,15 +114,16 @@ void Renderer::end_pass() {
     m_pass_in_progress = false;
 }
 
-void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle) {
-    // FIXME: Do the actually draw calls in end_pass
+void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle, const glm::mat4& transform) {
+    // FIXME: Do the actual draw calls in end_pass
     const auto& mesh = scene.m_meshes[mesh_handle.get_value()];
-    const auto& transform = scene.m_global_node_transforms[mesh.node_index];
-    glProgramUniformMatrix4fv(m_vshader, 0, 1, GL_FALSE, glm::value_ptr(transform));
+    const auto& node_transform = transform * scene.m_global_node_transforms[mesh.node_index];
+    glProgramUniformMatrix4fv(m_vshader, 0, 1, GL_FALSE, glm::value_ptr(node_transform));
 
     for (size_t i = 0; i < mesh.num_primitives; ++i) {
         const auto& prim = scene.m_primitives[mesh.primitive_index + i];
-        glDrawElementsBaseVertex(GL_TRIANGLES, prim.num_indices, GL_UNSIGNED_INT, (void*)(sizeof(u32) * prim.base_index), prim.base_vertex);
+        glDrawElementsBaseVertex(GL_TRIANGLES, prim.num_indices(), prim.index_type,
+                                 (void*)prim.indices_start, prim.base_vertex);
     }
 }
 
@@ -123,5 +152,4 @@ u32 Renderer::load_shader(const char* path, u32 shader_type) {
     return shader_handle;
 }
 
-
-}
+}  // namespace engine

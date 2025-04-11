@@ -1,6 +1,11 @@
 #ifndef _LOGGING_H
 #define _LOGGING_H
 
+#ifdef DEBUG
+    #pragma push_macro("DEBUG")
+    #undef DEBUG
+#endif
+
 #include <cstdio>
 #include <ctime>
 #include <format>
@@ -99,5 +104,9 @@ void Logger::log_with_position(const std::string file_name_str, const int line_n
 #define ERROR(fmt, ...) LOGGER_LOG(LogLevels::ERROR, fmt, ##__VA_ARGS__)
 #define WARN(fmt, ...) LOGGER_LOG(LogLevels::WARN, fmt, ##__VA_ARGS__)
 #define DEBUG(fmt, ...) LOGGER_LOG(LogLevels::DEBUG, fmt, ##__VA_ARGS__)
+
+#ifdef DEBUG
+    #pragma pop_macro("DEBUG")
+#endif
 
 #endif
