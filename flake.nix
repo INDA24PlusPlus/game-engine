@@ -16,9 +16,16 @@
         {
           nativeBuildInputs = [
             pkgs.pkg-config
+            pkgs.clang-tools
+            pkgs.llvmPackages_19.lldb
+            pkgs.llvmPackages_19.libllvm
+            pkgs.llvmPackages_19.libcxx
+            pkgs.llvmPackages_19.clang
             pkgs.xorg.xrandr
+            pkgs.xorg.libX11
           ];
           buildInputs = [
+            pkgs.pkg-config
             pkgs.udev 
             pkgs.alsa-lib 
             pkgs.vulkan-loader
@@ -27,10 +34,16 @@
             pkgs.xorg.libX11
             pkgs.xorg.libXi
             pkgs.xorg.libXcursor
-            pkgs.xorg.xrandr
+            pkgs.xorg.libXrandr
+            pkgs.xorg.libXinerama
+            pkgs.llvmPackages_19.lldb
+            pkgs.llvmPackages_19.libllvm
+            pkgs.llvmPackages_19.libcxx
+            pkgs.llvmPackages_19.clang
             pkgs.libGL
             pkgs.gcc
             pkgs.SDL2
+            pkgs.cmake
           ];
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath [
             pkgs.udev 
