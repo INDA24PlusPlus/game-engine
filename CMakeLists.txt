@@ -13,6 +13,14 @@ set(SOURCE_FILES
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
     src/engine/Scene.cpp
+    src/engine/ecs/ecs.cpp
+    src/engine/ecs/entity.cpp
+    src/engine/ecs/component.cpp
+    src/engine/ecs/system.cpp
+    src/engine/ecs/entityarray.cpp
+    src/engine/ecs/utils.cpp
+    src/engine/ecs/resource.cpp
+    src/engine/ecs/signature.cpp
     vendor/glad/src/glad.c
 )
 

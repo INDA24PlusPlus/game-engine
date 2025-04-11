@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/utils/logging.h"
 #include "types.h"
 #include "entity.hpp"
 
@@ -19,6 +20,9 @@ class Component : public ComponentBase {
     public:
         static u32 get_id() {
             static u32 id = id_counter++;
+            if (id >= MAX_COMPONENTS) {
+                ERROR("Component ID exceeds maximum components");
+            }
             return id;
         }
 
