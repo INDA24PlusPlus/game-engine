@@ -36,6 +36,7 @@ struct Primitive {
     u32 indices_start;
     u32 indices_end;
     u32 index_type;
+    u32 material_index;
 
     inline u32 num_indices() const {
         u32 len = indices_end - indices_start;
@@ -59,6 +60,41 @@ struct AssetHeader {
     u32 num_nodes;
     u32 num_root_nodes;
     u32 num_name_bytes;
+    u32 num_samplers;
+    u32 num_images;
+    u32 num_textures;
+    u32 num_materials;
+    u64 num_image_bytes;
+};
+
+// These have "Info" in the name cause they don't contain any actual GPU state.
+struct SamplerInfo {
+    u32 min_filter;
+    u32 mag_filter;
+    u32 wrap_t;
+    u32 wrap_s;
+};
+
+struct TextureInfo {
+    u32 sampler_index;
+    u32 image_index;
+};
+
+struct ImageInfo {
+    u32 width;
+    u32 height;
+    u32 image_size;
+    u32 is_srb;
+    u64 image_data_index;
+};
+
+struct Material {
+    enum class Flags : u32 {
+        has_base_color_texture = 1 << 0,
+    };
+
+    Flags flags;
+    u32 base_color_texture;
 };
 
 class Scene {
@@ -71,6 +107,12 @@ public:
 
     std::span<Node> m_nodes;
     std::span<u32> m_root_nodes;
+
+    std::span<SamplerInfo> m_samplers;
+    std::span<ImageInfo> m_images;
+    std::span<TextureInfo> m_textures;
+    std::span<Material> m_materials;
+    std::span<u8> m_image_data;
 
     // Compute
     std::vector<glm::mat4> m_global_node_transforms;

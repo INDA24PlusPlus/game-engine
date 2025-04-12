@@ -1,26 +1,20 @@
 #include "Renderer.h"
 
+#include <glad/glad.h>
+
 #include <cassert>
 #include <cstdint>
-#include <glad/glad.h>
-#include <string>
 #include <fstream>
-#include <sstream>
 #include <glm/gtc/type_ptr.hpp>
+#include <sstream>
+#include <string>
 
 #include "utils/logging.h"
 
-
 namespace engine {
 
-static void APIENTRY glDebugOutput(GLenum source, 
-                            GLenum type, 
-                            unsigned int id, 
-                            GLenum severity, 
-                            GLsizei length, 
-                            const char *message, 
-                            const void *userParam)
-{
+static void APIENTRY glDebugOutput(GLenum source, GLenum type, unsigned int id, GLenum severity,
+                                   GLsizei length, const char* message, const void* userParam) {
     (void)source;
     (void)id;
     (void)severity;
@@ -28,12 +22,15 @@ static void APIENTRY glDebugOutput(GLenum source,
     (void)userParam;
     (void)type;
     // ignore non-significant error/warning codes
-    if(id == 131169 || id == 131185 || id == 131218 || id == 131204) return; 
+    if (id == 131169 || id == 131185 || id == 131218 || id == 131204) return;
     ERROR("OpenGL debug output: {}", message);
 }
 
+void Renderer::init(LoadProc load_proc) {
+    INFO("Intiliazing renderer");
+    m_scene_loaded = false;
+    m_pass_in_progress = false;
 
-Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progress{false} {
     if (!gladLoadGLLoader((GLADloadproc)load_proc)) {
         ERROR("Failed to load OpenGL function pointers");
         exit(1);
@@ -47,9 +44,17 @@ Renderer::Renderer(LoadProc load_proc) : m_scene_loaded{false}, m_pass_in_progre
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+    INFO("Initialized renderer");
+}
+
+void Renderer::set_texture_filtering_level(f32 level) {
+    for (size_t i = 0; i < m_sampler_handles.size(); ++i) {
+        glSamplerParameterf(m_sampler_handles[i], GL_TEXTURE_MAX_ANISOTROPY, level);
+    }
 }
 
 void Renderer::make_resources_for_scene(const Scene& scene) {
+    INFO("Creating renderer state for scene data.");
     assert(!m_scene_loaded);
     glCreateVertexArrays(1, &m_vao);
 
@@ -88,17 +93,43 @@ void Renderer::make_resources_for_scene(const Scene& scene) {
     glUseProgramStages(m_pipeline, GL_VERTEX_SHADER_BIT, m_vshader);
     glUseProgramStages(m_pipeline, GL_FRAGMENT_SHADER_BIT, m_fshader);
 
+    m_texture_handles.resize(scene.m_images.size());
+    glCreateTextures(GL_TEXTURE_2D, m_texture_handles.size(), m_texture_handles.data());
+    for (size_t i = 0; i < scene.m_images.size(); ++i) {
+        const auto& image = scene.m_images[i];
+        u32 format =
+            image.is_srb ? GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM : GL_COMPRESSED_RGBA_BPTC_UNORM;
+
+        u32 max_dim = std::max(image.width, image.height);
+        u32 mip_levels = (std::log2(max_dim) + 1);
+        glTextureStorage2D(m_texture_handles[i], mip_levels, format, image.width, image.height);
+        glCompressedTextureSubImage2D(m_texture_handles[i], 0, 0, 0, image.width, image.height,
+                                      format, image.image_size,
+                                      &scene.m_image_data[image.image_data_index]);
+        glGenerateTextureMipmap(m_texture_handles[i]);
+    }
+
+    m_sampler_handles.resize(scene.m_samplers.size());
+    glCreateSamplers(m_sampler_handles.size(), m_sampler_handles.data());
+    for (size_t i = 0; i < m_sampler_handles.size(); ++i) {
+        const auto& sampler = scene.m_samplers[i];
+        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_MAG_FILTER, sampler.mag_filter);
+        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_MIN_FILTER, sampler.min_filter);
+        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_WRAP_S, sampler.wrap_s);
+        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_WRAP_T, sampler.wrap_t);
+    }
+
     m_scene_loaded = true;
+    INFO("Created renderer state for scene object.");
 }
 
-void Renderer::clear() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
+void Renderer::clear() { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }
 
 void Renderer::begin_pass(const Camera& camera, u32 width, u32 height) {
     assert(!m_pass_in_progress);
     glBindVertexArray(m_vao);
     glBindProgramPipeline(m_pipeline);
+    glEnable(GL_FRAMEBUFFER_SRGB);
 
     f32 aspect_ratio = (f32)width / (f32)height;
     auto projection = glm::perspective(glm::radians(90.0f), aspect_ratio, 0.1f, 1000.0f);
@@ -110,6 +141,7 @@ void Renderer::begin_pass(const Camera& camera, u32 width, u32 height) {
 }
 
 void Renderer::end_pass() {
+    glDisable(GL_FRAMEBUFFER_SRGB);
     assert(m_pass_in_progress);
     m_pass_in_progress = false;
 }
@@ -122,11 +154,17 @@ void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle, const glm::
 
     for (size_t i = 0; i < mesh.num_primitives; ++i) {
         const auto& prim = scene.m_primitives[mesh.primitive_index + i];
+        const auto& material = scene.m_materials[prim.material_index];
+        const auto& base_color_texture = scene.m_textures[material.base_color_texture];
+
+        glBindSampler(0, m_sampler_handles[base_color_texture.sampler_index]);
+        glBindTextureUnit(0, m_texture_handles[base_color_texture.image_index]);
+
         auto num_indices = prim.num_indices();
         u64 byte_offset = prim.indices_start;
 
-        glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type,
-                                 (void*)byte_offset, prim.base_vertex);
+        glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type, (void*)byte_offset,
+                                 prim.base_vertex);
     }
 }
 

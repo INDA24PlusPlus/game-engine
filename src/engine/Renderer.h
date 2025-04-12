@@ -2,6 +2,7 @@
 #define _RENDERER_H
 
 #include <glm/glm.hpp>
+#include <vector>
 #include "Scene.h"
 #include "Camera.h"
 #include "core.h"
@@ -11,12 +12,12 @@ namespace engine {
 class Renderer {
    public:
     typedef void* (*LoadProc)(const char* name);
-    Renderer(LoadProc load_proc);
-    Renderer() = delete;
 
+    void init(LoadProc load_proc);
     void make_resources_for_scene(const Scene& scene);
 
     // Will go away.
+    void set_texture_filtering_level(f32 level);
     void clear();
     void begin_pass(const Camera& camera, u32 width, u32 height);
     void end_pass();
@@ -25,6 +26,10 @@ class Renderer {
 
    private:
     u32 load_shader(const char* path, u32 shader_type);
+
+    // TODO: Move this into scene
+    std::vector<u32> m_texture_handles;
+    std::vector<u32> m_sampler_handles;
 
     bool m_scene_loaded;
     bool m_pass_in_progress;

@@ -1,10 +1,10 @@
 #ifndef _ASSET_IMPORTER_H
 #define _ASSET_IMPORTER_H
 
-#include <unordered_map>
-#include <vector>
-#include <string>
 #include <tiny_gltf.h>
+
+#include <string>
+#include <unordered_map>
 
 #include "../../../src/engine/Scene.h"
 
@@ -13,6 +13,10 @@ using namespace engine;
 struct AssetImporter {
     u32 m_base_node;
     u32 m_base_mesh;
+    u32 m_base_texture;
+    u32 m_base_image;
+    u32 m_base_sampler;
+    u32 m_base_material;
 
     // Maps the GLTF files node indices to our own.
     std::unordered_map<u32, u32> m_node_map;
@@ -26,6 +30,12 @@ struct AssetImporter {
     std::vector<Node> m_nodes;
     std::vector<u32> m_root_nodes;
 
+    std::vector<SamplerInfo> m_samplers;
+    std::vector<ImageInfo> m_images;
+    std::vector<TextureInfo> m_textures;
+    std::vector<Material> m_materials;
+    std::vector<u8> m_image_data;
+
     void load_asset(std::string path);
     void load_indices(const tinygltf::Model& model, const tinygltf::Accessor accessor);
     void load_vertices(const tinygltf::Model& model, const tinygltf::Primitive prim);
@@ -33,6 +43,11 @@ struct AssetImporter {
     void load_primitive(const tinygltf::Model& model, const tinygltf::Primitive& prim);
     void load_meshes(const tinygltf::Model& model);
     void load_nodes(const tinygltf::Model& model);
+    void load_textures(const tinygltf::Model& model);
+    void load_images(const tinygltf::Model& model, const std::vector<bool>& is_srgb);
+    void determine_required_images(const tinygltf::Model& model, std::vector<bool>& is_srgb);
+    void load_samplers(const tinygltf::Model& model);
+    void load_materials(const tinygltf::Model& model);
 };
 
 #endif

@@ -37,6 +37,11 @@ void Scene::load_asset_file(const char* path) {
     INFO("Num Primitives: {}", header->num_primitives);
     INFO("Num Nodes: {}", header->num_nodes);
     INFO("Num Root nodes: {}", header->num_root_nodes);
+    INFO("Num samplers: {}", header->num_samplers);
+    INFO("Num images: {}", header->num_images);
+    INFO("Num textures: {}", header->num_textures);
+    INFO("Num materials: {}", header->num_materials);
+    INFO("Asset file is {} bytes ({} MB)", m_asset_file_mem.size(), m_asset_file_mem.size() >> 20);
 
     u8* ptr = m_asset_file_mem.data() + sizeof(AssetHeader);
 
@@ -46,6 +51,11 @@ void Scene::load_asset_file(const char* path) {
     m_primitives = read_asset_data<Primitive>(ptr, header->num_primitives);
     m_nodes = read_asset_data<Node>(ptr, header->num_nodes);
     m_root_nodes = read_asset_data<u32>(ptr, header->num_root_nodes);
+    m_samplers = read_asset_data<SamplerInfo>(ptr, header->num_samplers);
+    m_images = read_asset_data<ImageInfo>(ptr, header->num_images);
+    m_textures = read_asset_data<TextureInfo>(ptr, header->num_textures);
+    m_materials = read_asset_data<Material>(ptr, header->num_materials);
+    m_image_data = read_asset_data<u8>(ptr, header->num_image_bytes);
     read_mesh_names(ptr);
 
     u64 bytes_read = (u64)(ptr - m_asset_file_mem.data());

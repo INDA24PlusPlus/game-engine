@@ -1,17 +1,22 @@
 #include "AssetImporter.h"
 
+#include <ktx.h>
+#include <tiny_gltf.h>
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <string>
-#include <tiny_gltf.h>
 #include <print>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <vector>
 
 #include "glm/fwd.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include "../../../src/engine/utils/logging.h"
 
@@ -61,7 +66,7 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
 
     u32 num_elements = size_in_bytes / sizeof(T);
     u32 start = out.size();
-    
+
     out.resize(out.size() + num_elements);
     std::span<T> out_span(&out[start], num_elements);
 
@@ -72,6 +77,10 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
 void AssetImporter::load_asset(std::string path) {
     m_base_node = m_nodes.size();
     m_base_mesh = m_meshes.size();
+    m_base_texture = m_textures.size();
+    m_base_image = m_images.size();
+    m_base_sampler = m_samplers.size();
+    m_base_material = m_materials.size();
 
     tinygltf::Model model;
     tinygltf::TinyGLTF gltf;
@@ -93,6 +102,8 @@ void AssetImporter::load_asset(std::string path) {
     }
     load_meshes(model);
     load_nodes(model);
+    load_materials(model);
+    load_textures(model);
 }
 
 void AssetImporter::load_meshes(const tinygltf::Model& model) {
@@ -158,6 +169,7 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
         .indices_start = indices_start,
         .indices_end = indices_end,
         .index_type = (u32)indices_accessor.componentType,
+        .material_index = m_base_material + (u32)prim.material,
     });
     INFO("Parsed primitive");
 }
@@ -236,7 +248,6 @@ glm::mat4 to_glm(const std::vector<double>& matrix) {
 
 void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
                               u32 our_node_index) {
-
     const auto& gltf_node = model.nodes[gltf_node_index];
     INFO("--------- Loading glTF node {} ----------", gltf_node_index);
     INFO("Node has {} children", gltf_node.children.size());
@@ -288,5 +299,158 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
 
     for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
         load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
+    }
+}
+
+void AssetImporter::load_textures(const tinygltf::Model& model) {
+    std::vector<bool> is_srgb;
+    determine_required_images(model, is_srgb);
+    load_samplers(model);
+    load_images(model, is_srgb);
+
+    for (size_t i = 0; i < model.textures.size(); ++i) {
+        const auto& texture = model.textures[i];
+
+        m_textures.push_back({
+            .sampler_index = m_base_sampler + texture.sampler,
+            .image_index = m_base_image + texture.source,
+        });
+    }
+}
+
+void AssetImporter::determine_required_images(const tinygltf::Model& model,
+                                              std::vector<bool>& is_srgb) {
+    is_srgb.resize(model.images.size(), false);
+    for (size_t i = 0; i < model.materials.size(); ++i) {
+        const auto& material = model.materials[i];
+        if (material.pbrMetallicRoughness.baseColorTexture.index != -1) {
+            u32 texture_index = material.pbrMetallicRoughness.baseColorTexture.index;
+            const auto& tex = model.textures[texture_index];
+            is_srgb[tex.source] = true;
+        }
+    }
+}
+
+void AssetImporter::load_samplers(const tinygltf::Model& model) {
+    constexpr u32 GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+    constexpr u32 GL_LINEAR = 0x2601;
+
+    for (size_t i = 0; i < model.samplers.size(); i++) {
+        const auto& sampler = model.samplers[i];
+        u32 min_filter = sampler.minFilter == -1 ? GL_LINEAR_MIPMAP_LINEAR : sampler.minFilter;
+        u32 mag_filter = sampler.magFilter == -1 ? GL_LINEAR : sampler.magFilter;
+        m_samplers.push_back({
+            .min_filter = min_filter,
+            .mag_filter = mag_filter,
+            .wrap_t = (u32)sampler.wrapT,
+            .wrap_s = (u32)sampler.wrapS,
+        });
+    }
+}
+
+void AssetImporter::load_images(const tinygltf::Model& model, const std::vector<bool>& is_srgb) {
+    for (size_t i = 0; i < model.images.size(); ++i) {
+        const auto& image = model.images[i];
+        m_images.push_back({
+            .width = (u32)image.width,
+            .height = (u32)image.height,
+            .is_srb = is_srgb[i],
+            .image_data_index = m_image_data.size(),
+        });
+
+        constexpr u32 VK_FORMAT_R8G8B8A8_UNORM = 37;
+        constexpr u32 VK_FORMAT_R8G8B8A8_SRGB = 43;
+
+        constexpr u32 GL_RGBA8 = 0x8058;
+        constexpr u32 GL_SRGB8_ALPHA8 = 0x8C43;
+
+        // First create ktx texture for storing the RGBA data.
+        ktxTextureCreateInfo create_info = {
+            .glInternalformat = is_srgb[i] ? GL_SRGB8_ALPHA8 : GL_RGBA8,
+            .vkFormat = is_srgb[i] ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM,
+            .pDfd = nullptr,
+            .baseWidth = (u32)image.width,
+            .baseHeight = (u32)image.height,
+            .baseDepth = 1,
+            .numDimensions = 2,
+            .numLevels = 1,
+            .numLayers = 1,
+            .numFaces = 1,
+            .isArray = KTX_FALSE,
+            .generateMipmaps = KTX_FALSE,
+        };
+        ktxTexture2* uncompressed;
+        auto result =
+            ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &uncompressed);
+        if (result != KTX_SUCCESS) {
+            ERROR("Failed to create storage for loaded image.");
+            exit(1);
+        }
+
+        size_t offset = 0;
+        ktxTexture2_GetImageOffset(uncompressed, 0, 0, 0, &offset);
+
+        auto data = ktxTexture_GetData(ktxTexture(uncompressed));
+        auto uncompressed_size = ktxTexture_GetImageSize(ktxTexture(uncompressed), 0);
+
+        assert(uncompressed_size == (u32)image.width * (u32)image.height * 4);
+        std::memcpy(data + offset, image.image.data(), uncompressed_size);
+
+        // Compress and then transcode to BC7
+        ktxBasisParams params = {0};
+        params.structSize = sizeof(params);
+        params.uastc = KTX_TRUE;
+        params.qualityLevel = 255;
+        params.threadCount = std::thread::hardware_concurrency();
+
+        INFO("Compressing image");
+        result = ktxTexture2_CompressBasisEx(uncompressed, &params);
+        if (result != KTX_SUCCESS) {
+            ERROR("Failed to compress image data.");
+            exit(1);
+        }
+
+        result = ktxTexture2_TranscodeBasis(uncompressed, KTX_TTF_BC7_RGBA, 0);
+        if (result != KTX_SUCCESS) {
+            ERROR("Failed to transcode image data to BC7.");
+            exit(1);
+        }
+
+        size_t compressed_offset = 0;
+        ktxTexture2_GetImageOffset(uncompressed, 0, 0, 0, &compressed_offset);
+        auto compressed_size = ktxTexture_GetImageSize(ktxTexture(uncompressed), 0);
+
+        size_t dst_offset = m_image_data.size();
+        m_image_data.resize(m_image_data.size() + compressed_size);
+
+        std::memcpy(&m_image_data[dst_offset],
+                    ktxTexture_GetData(ktxTexture(uncompressed)) + compressed_offset,
+                    compressed_size);
+
+        m_images[m_images.size() - 1].image_size = compressed_size;
+        ktxTexture2_Destroy(uncompressed);
+        INFO("Compressed image");
+    }
+}
+
+void AssetImporter::load_materials(const tinygltf::Model& model) {
+    for (size_t i = 0; i < model.materials.size(); ++i) {
+        const auto& material = model.materials[i];
+        const auto& base_color_factor = material.pbrMetallicRoughness.baseColorFactor;
+
+        u32 flags = 0;
+        if (material.pbrMetallicRoughness.baseColorTexture.index != -1) {
+            flags |= (u32)Material::Flags::has_base_color_texture;
+        }
+
+        if (material.doubleSided) {
+            WARN("glTF model has double sided material which will not be rendered correctly");
+        }
+
+        m_materials.push_back({
+            .flags = (Material::Flags)flags,
+            .base_color_texture =
+                m_base_texture + material.pbrMetallicRoughness.baseColorTexture.index,
+        });
     }
 }

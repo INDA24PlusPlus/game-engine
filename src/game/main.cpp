@@ -67,10 +67,10 @@ int main(void) {
     state.mouse_locked = true;
     state.sensitivity = 0.001f;
 
-    engine::Renderer renderer((engine::Renderer::LoadProc)glfwGetProcAddress);
+    state.renderer.init((engine::Renderer::LoadProc)glfwGetProcAddress);
     state.scene.load_asset_file("scene_data.bin");
     state.scene.compute_global_node_transforms();
-    renderer.make_resources_for_scene(state.scene);
+    state.renderer.make_resources_for_scene(state.scene);
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -162,13 +162,13 @@ int main(void) {
         gui::build(state);
 
         // Draw
-        renderer.clear();
-        renderer.begin_pass(state.camera, width, height);
-        renderer.draw_mesh(state.scene, helmet_mesh);
-        renderer.draw_mesh(state.scene, helmet_mesh,
+        state.renderer.clear();
+        state.renderer.begin_pass(state.camera, width, height);
+        state.renderer.draw_mesh(state.scene, helmet_mesh);
+        state.renderer.draw_mesh(state.scene, helmet_mesh,
                            glm::translate(glm::mat4(1.0f), glm::vec3(0, 2, 0)));
-        renderer.draw_mesh(state.scene, sponza_mesh);
-        renderer.end_pass();
+        state.renderer.draw_mesh(state.scene, sponza_mesh);
+        state.renderer.end_pass();
 
         gui::render();
 

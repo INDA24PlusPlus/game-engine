@@ -29,6 +29,7 @@ FetchContent_Declare(
 # KTX seems to only build on C++17
 message(NOTICE "Fetching LibKTX from https://github.com/KhronosGroup/KTX-Software ...")
 set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "Build KTX as a static library" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(KTX_FEATURE_TOOLS OFF CACHE BOOL "")
 set(KTX_FEATURE_DOC OFF CACHE BOOL "")
 set(KTX_FEATURE_TESTS OFF CACHE BOOL "")
@@ -54,7 +55,7 @@ set_target_properties(asset_processor PROPERTIES
 )
 
 target_link_libraries(asset_processor PRIVATE ktx)
-target_include_directories(asset_processor PRIVATE ${fetch_ktx_SOURCE_DIR}/include)
+target_include_directories(asset_processor PRIVATE ${ktx_SOURCE_DIR}/include)
 
 target_include_directories(asset_processor PRIVATE src)
 target_include_directories(asset_processor PRIVATE ${glm_SOURCE_DIR})

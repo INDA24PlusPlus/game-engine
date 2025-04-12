@@ -2,6 +2,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <format>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "glm/ext/quaternion_geometric.hpp"
@@ -29,6 +30,7 @@ void gui::deinit() {
 void gui::build(State &state) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+    char fmt_buf[1024];
 
     ImGui::NewFrame();
     ImGui::Begin("Camera", nullptr);
@@ -45,7 +47,29 @@ void gui::build(State &state) {
     ImGui::DragFloat4("Rotation", (f32*)glm::value_ptr(node.rotation), 0.05f);
     node.rotation = glm::normalize(node.rotation);
     ImGui::DragFloat3("Scale", (f32*)glm::value_ptr(node.scale));
+    ImGui::End();
 
+    if (ImGui::Begin("Renderer settings", nullptr)) {
+        static int texture_filtering_rate = 1;
+        auto msg_len = std::format_to_n(fmt_buf, sizeof(fmt_buf) - 1, "{}x", texture_filtering_rate);
+        fmt_buf[msg_len.size] = 0;
+        if (ImGui::BeginCombo("Texture Filtering", fmt_buf)) {
+            for (int i = 1; i <= 16; i <<= 1) {
+                auto msg_len = std::format_to_n(fmt_buf, sizeof(fmt_buf) - 1, "{}x", i);
+                fmt_buf[msg_len.size] = 0;
+                bool selected = i == texture_filtering_rate;
+                if (ImGui::Selectable(fmt_buf, selected)) {
+                    texture_filtering_rate = i;
+                    state.renderer.set_texture_filtering_level((f32)i);
+                }
+
+                if (selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }
     ImGui::End();
 
 }
