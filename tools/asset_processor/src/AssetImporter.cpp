@@ -6,12 +6,16 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <memory>
 #include <print>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
+#include "encoder/basisu_resampler.h"
 #include "glm/fwd.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -454,3 +458,158 @@ void AssetImporter::load_materials(const tinygltf::Model& model) {
         });
     }
 }
+
+// What we need from image:
+// width, height, pixels
+
+static f32 srgb_to_linear(f32 srgb) {
+    return srgb <= 0.04045f ? srgb * (1.0f / 12.92f)
+                            : std::pow((srgb + 0.055f) * (1.0f / 1.055f), 2.4f);
+}
+
+static f32 linear_to_srgb(f32 linear) {
+    return linear <= 0.0031308f ? 12.92f * linear : 1.055f * std::pow(linear, 1.0f / 2.4f) - 0.055f;
+}
+
+static void check_resampler_status(basisu::Resampler& resampler, const char* filter) {
+    using Status = basisu::Resampler::Status;
+    switch (resampler.status()) {
+        case Status::STATUS_OKAY:
+            break;
+        case Status::STATUS_OUT_OF_MEMORY:
+            ERROR("Resampler or Resampler::put_line out of memory.");
+            exit(1);
+        case Status::STATUS_BAD_FILTER_NAME:
+            ERROR("Unknown filter: {}", filter);
+            exit(1);
+        case Status::STATUS_SCAN_BUFFER_FULL:
+            ERROR("Resampler::put_line scan buffer full.");
+            exit(1);
+    }
+}
+
+template <typename CompType, u32 num_comps>
+static void resample(u32 dst_width, u32 dst_height, std::span<CompType> dst_pixels, u32 src_width,
+                     u32 src_height, std::span<CompType> src_pixels, bool is_srgb) {
+    if (std::max(src_width, src_height) > BASISU_RESAMPLER_MAX_DIMENSION ||
+        std::max(dst_width, dst_height)) {
+        ERROR("Image larger than max supported resampler dimension of {}",
+              BASISU_RESAMPLER_MAX_DIMENSION);
+        exit(1);
+    }
+
+    auto filter = "lanczos4";
+    f32 filter_scale = 1.0f;
+    auto wrap_mode = basisu::Resampler::Boundary_Op::BOUNDARY_CLAMP;
+
+    const bool is_hdr = std::is_floating_point_v<CompType>;
+
+    std::array<std::vector<f32>, num_comps> samples;
+    std::array<std::unique_ptr<basisu::Resampler>, num_comps> resamplers;
+
+    for (size_t i = 0; i < num_comps; ++i) {
+        resamplers[i] = std::make_unique(src_width, src_height, dst_width, dst_height, wrap_mode,
+                                         0.0f, is_hdr ? 0.0f : 1.0f, filter,
+                                         i == 0 ? nullptr : resamplers[0]->get_clist_x(),
+                                         i == 0 ? nullptr : resamplers[0]->get_clist_y(),
+                                         filter_scale, filter_scale, 0.0f, 0.0f);
+        check_resampler_status(*resamplers[i], filter);
+        samples[i].resize(src_width);
+    }
+
+    auto max_comp_value = std::numeric_limits<CompType>::max();
+
+    u32 dst_y = 0;
+    for (u32 src_y = 0; src_y < src_height; ++src_y) {
+        // Resamplers works on a per line basis with linear data.
+        for (u32 src_x; src_x < src_width; ++src_x) {
+            for (u32 c = 0; c < num_comps; ++c) {
+                f32 value = (f32)src_pixels[(src_y * src_width + src_x) * num_comps + c];
+                if constexpr (is_hdr) {
+                    value /= (f32)max_comp_value;
+                }
+
+                // Conver to linear space if we are in sRGB and if we are not the alpha component.
+                if (is_srgb && c < 3) {
+                    samples[c][src_x] = srgb_to_linear(value);
+                } else {
+                    samples[c][src_x] = value;
+                }
+            }
+        }
+
+        for (u32 c = 0; c < num_comps; ++c) {
+            if (!resamplers[c]->put_line(*samples[c][0], filter)) {
+                check_sampler_status(*resamplers[c], filter);
+            }
+        }
+
+        while (true) {
+            std::array<const float*, num_comps> output_line{nullptr};
+            for (u32 c = 0; c < num_comps; ++c) {
+                output_line[c] = resamplers[c]->get_line();
+            }
+
+            if (output_line[0] == nullptr) {
+                break;  // We retrieved all the ouput lines. Time to place a new source line.
+            }
+
+            for (u32 dst_x = 0; dst_x < dst_width; ++dst_x) {
+                for (u32 c = 0; c < num_comps; c++) {
+                    float linear_value = output_line[c][dst_x];
+                    float output_value;
+
+                    if (is_srgb && c < 3) {
+                        output_value = linear_to_srgb(linear_value);
+                    } else {
+                        output_value = linear_value;
+                    }
+
+                    if constexpr (is_hdr) {
+                        dst_pixels[(dst_y * dst_width + dst_x) * num_comps + c] = output_value;
+                    } else {
+                        const f32 scaled = output_value * (f32)max_comp_value + 0.5f;
+                        const auto unorm_value = std::isnan(scaled) ? CompType{0}
+                                                 : scaled < 0.f     ? CompType{0}
+                                                 : scaled > max_comp_value
+                                                     ? CompType{max_comp_value}
+                                                     : static_cast<CompType>(scaled);
+                        dst_pixels[(dst_y * dst_width + dst_x) * num_comps + c] = unorm_value;
+                    }
+                }
+            }
+
+            ++dst_y;
+        }
+    }
+}
+
+// From KTX 2.0 tools/toktx/toktx.cc
+// void genMipmap(Image* image, u32 layer, u32 face_slice, ktxTexture* texture, bool normalize) {
+//    std::unique_ptr<Image> level_image;
+//    for (uint32_t glevel = 1; glevel < texture->numLevels; glevel++) {
+//        auto level_width = maximum<uint32_t>(1, image->getWidth() >> glevel);
+//        auto level_height = maximum<uint32_t>(1, image->getHeight() >> glevel);
+//        try {
+//            // Default settings from the toktx tool.
+//            auto filter = "lanczos4";
+//            f32 filter_scale = 1.0f;
+//            auto wrap_mode = basisu::Resampler::Boundary_Op::BOUNDARY_CLAMP;
+//            level_image =
+//                image->resample(level_width, level_height, filter, filter_scale, wrap_mode);
+//        } catch (std::runtime_error& e) {
+//            ERROR("Image resampling failed while generating mipmaps for textures! {}", e.what());
+//            exit(1);
+//        }
+//
+//        // For normal maps, I think?
+//        if (normalize) {
+//            level_image->normalize();
+//        }
+//
+//        MAYBE_UNUSED ktx_error_code_e ret;
+//        ret = ktxTexture_SetImageFromMemory(texture, glevel, layer, face_slice, *level_image,
+//                                            level_image->getByteCount());
+//        assert(ret == KTX_SUCCESS);
+//    }
+//}
