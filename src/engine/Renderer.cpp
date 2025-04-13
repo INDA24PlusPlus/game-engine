@@ -100,13 +100,18 @@ void Renderer::make_resources_for_scene(const Scene& scene) {
         u32 format =
             image.is_srb ? GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM : GL_COMPRESSED_RGBA_BPTC_UNORM;
 
-        u32 max_dim = std::max(image.width, image.height);
-        u32 mip_levels = (std::log2(max_dim) + 1);
-        glTextureStorage2D(m_texture_handles[i], mip_levels, format, image.width, image.height);
-        glCompressedTextureSubImage2D(m_texture_handles[i], 0, 0, 0, image.width, image.height,
-                                      format, image.image_size,
-                                      &scene.m_image_data[image.image_data_index]);
-        glGenerateTextureMipmap(m_texture_handles[i]);
+        glTextureStorage2D(m_texture_handles[i], image.num_levels, format, image.width,
+                           image.height);
+
+        for (u32 level = 0; level < image.num_levels; ++level) {
+            u32 level_size = image.level_size(level);
+            u32 level_offset = image.level_offset(level);
+            u32 level_width = image.width >> level;
+            u32 level_height = image.height >> level;
+            glCompressedTextureSubImage2D(m_texture_handles[i], level, 0, 0, level_width,
+                                          level_height, format, level_size,
+                                          &scene.m_image_data[level_offset]);
+        }
     }
 
     m_sampler_handles.resize(scene.m_samplers.size());

@@ -83,9 +83,27 @@ struct TextureInfo {
 struct ImageInfo {
     u32 width;
     u32 height;
-    u32 image_size;
+    u32 num_levels;
     u32 is_srb;
     u64 image_data_index;
+
+    inline u32 level_size(u32 desired_level) const {
+        u32 block_width = ((width >> desired_level) + 3) / 4;
+        u32 block_height = ((height >> desired_level) + 3) /4;
+        u32 size_in_bytes = block_width * block_height * 16;
+        return size_in_bytes;
+    }
+
+    inline u64 level_offset(u32 desired_level) const {
+        assert(desired_level < num_levels);
+        u64 offset = image_data_index;
+        for (u32 level = 0; level < desired_level; ++level) {
+            u32 size_in_bytes = level_size(level);
+            offset += size_in_bytes;
+        }
+
+        return offset;
+    }
 };
 
 struct Material {

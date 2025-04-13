@@ -5,6 +5,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <ktx.h>
 
 #include "../../../src/engine/Scene.h"
 
@@ -48,6 +49,9 @@ struct AssetImporter {
     void determine_required_images(const tinygltf::Model& model, std::vector<bool>& is_srgb);
     void load_samplers(const tinygltf::Model& model);
     void load_materials(const tinygltf::Model& model);
+    void write_texture_to_image_data(ktxTexture2* texture);
+    void compress_texture(ktxTexture2* texture);
+    void load_image_data_into_texture(ktxTexture2* texture, const tinygltf::Image& image);
 };
 
 #endif

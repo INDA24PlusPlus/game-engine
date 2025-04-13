@@ -12,7 +12,7 @@ set(SOURCE_FILES
     ../../src/engine/utils/logging.cpp
 )
 
-set(COMMON_COMPILE_FLAGS -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions)
+set(COMMON_COMPILE_FLAGS -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function)
 
 FetchContent_Declare(
     tinygltf
@@ -56,6 +56,7 @@ set_target_properties(asset_processor PROPERTIES
 
 target_link_libraries(asset_processor PRIVATE ktx)
 target_include_directories(asset_processor PRIVATE ${ktx_SOURCE_DIR}/include)
+target_include_directories(asset_processor PRIVATE ${ktx_SOURCE_DIR}/external/basisu)
 
 target_include_directories(asset_processor PRIVATE src)
 target_include_directories(asset_processor PRIVATE ${glm_SOURCE_DIR})
