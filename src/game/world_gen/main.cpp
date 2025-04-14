@@ -1,7 +1,7 @@
 #include "game/map/map.h"
 
-int main(){
-    Map map(100, 15, 5, 10, 1337);
-    map.print();
-}
+// int main(){
+//     Map map(100, 15, 5, 10, 1337);
+//     map.print();
+// }
 
