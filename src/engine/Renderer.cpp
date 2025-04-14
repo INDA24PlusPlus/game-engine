@@ -44,7 +44,14 @@ void Renderer::init(LoadProc load_proc) {
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &m_max_texture_filtering);
+
     INFO("Initialized renderer");
+}
+
+f32 Renderer::get_max_texture_filtering_level() const {
+    return m_max_texture_filtering;
 }
 
 void Renderer::set_texture_filtering_level(f32 level) {

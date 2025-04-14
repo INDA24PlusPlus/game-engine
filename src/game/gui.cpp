@@ -8,6 +8,8 @@
 #include "glm/ext/quaternion_geometric.hpp"
 #include "state.h"
 
+// NOTE: This is all debug stuff. Feel free to use global data.
+
 void gui::init(GLFWwindow* window, f32 content_scale) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -54,7 +56,7 @@ void gui::build(State &state) {
         auto msg_len = std::format_to_n(fmt_buf, sizeof(fmt_buf) - 1, "{}x", texture_filtering_rate);
         fmt_buf[msg_len.size] = 0;
         if (ImGui::BeginCombo("Texture Filtering", fmt_buf)) {
-            for (int i = 1; i <= 16; i <<= 1) {
+            for (int i = 1; i <= state.renderer.get_max_texture_filtering_level(); i <<= 1) {
                 auto msg_len = std::format_to_n(fmt_buf, sizeof(fmt_buf) - 1, "{}x", i);
                 fmt_buf[msg_len.size] = 0;
                 bool selected = i == texture_filtering_rate;

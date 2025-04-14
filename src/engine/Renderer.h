@@ -18,6 +18,8 @@ class Renderer {
 
     // Will go away.
     void set_texture_filtering_level(f32 level);
+    f32 get_max_texture_filtering_level() const;
+
     void clear();
     void begin_pass(const Camera& camera, u32 width, u32 height);
     void end_pass();
@@ -33,6 +35,9 @@ class Renderer {
 
     bool m_scene_loaded;
     bool m_pass_in_progress;
+
+    f32 m_max_texture_filtering;
+
     u32 m_vao;
     u32 m_ibo;
     u32 m_vbo;
