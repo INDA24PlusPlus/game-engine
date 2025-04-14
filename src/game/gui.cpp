@@ -5,8 +5,10 @@
 #include <format>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "GLFW/glfw3.h"
 #include "glm/ext/quaternion_geometric.hpp"
 #include "state.h"
+#include "engine/utils/logging.h"
 
 // NOTE: This is all debug stuff. Feel free to use global data.
 
@@ -35,6 +37,17 @@ void gui::build(State &state) {
     char fmt_buf[1024];
 
     ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos({ ImGui::GetFontSize(), state.fb_height - 4.0f * ImGui::GetFontSize() });
+    ImGui::Begin("Metrics", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize);
+    f32 avg_delta_time = 0.0f;
+    for (f32 v : state.prev_delta_times) {
+        avg_delta_time += v;
+    }
+    avg_delta_time *= (1.0f / (f32)state.prev_delta_times.size());
+    ImGui::Text("%d FPS (%.3f ms)", (int)(1.0f / avg_delta_time), avg_delta_time * 1000.0f);
+    ImGui::End();
+
     ImGui::Begin("Camera", nullptr);
     ImGui::DragFloat4("Camera orientation", (f32*)&state.camera.m_orientation);
     ImGui::DragFloat3("Camera position", (f32*)&state.camera.m_pos);
@@ -52,6 +65,12 @@ void gui::build(State &state) {
     ImGui::End();
 
     if (ImGui::Begin("Renderer settings", nullptr)) {
+        static bool vsync = true;
+        if (ImGui::Checkbox("VSync", &vsync)) {
+            glfwSwapInterval(vsync);
+            INFO("Changed vsync status");
+        }
+
         static int texture_filtering_rate = 1;
         auto msg_len = std::format_to_n(fmt_buf, sizeof(fmt_buf) - 1, "{}x", texture_filtering_rate);
         fmt_buf[msg_len.size] = 0;

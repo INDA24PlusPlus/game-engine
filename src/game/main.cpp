@@ -47,6 +47,7 @@ int main(void) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
     glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_SAMPLES, 8);
 #ifndef NDEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
 #else
@@ -63,7 +64,7 @@ int main(void) {
     glfwMakeContextCurrent(window);
 
     engine::Input input(window);
-    State state;
+    State state = {};
     state.camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
     state.mouse_locked = true;
     state.sensitivity = 0.001f;
@@ -105,6 +106,11 @@ int main(void) {
         if (width == 0 || height == 0) {
             continue;
         }
+        state.fb_width = width;
+        state.fb_height = height;
+
+        state.prev_delta_times[state.fps_counter_index] = state.delta_time;
+        state.fps_counter_index = (state.fps_counter_index + 1) % state.prev_delta_times.size();
 
         // keyboard input
         if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
