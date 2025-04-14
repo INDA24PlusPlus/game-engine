@@ -623,6 +623,8 @@ void AssetImporter::load_materials(const tinygltf::Model& model) {
 
         m_materials.push_back({
             .flags = (Material::Flags)flags,
+            .base_color_factor = glm::vec4(base_color_factor[0], base_color_factor[1],
+                                           base_color_factor[2], base_color_factor[3]),
             .base_color_texture =
                 m_base_texture + material.pbrMetallicRoughness.baseColorTexture.index,
         });

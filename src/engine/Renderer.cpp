@@ -172,6 +172,10 @@ void Renderer::draw_mesh(const Scene& scene, MeshHandle mesh_handle, const glm::
         glBindSampler(0, m_sampler_handles[base_color_texture.sampler_index]);
         glBindTextureUnit(0, m_texture_handles[base_color_texture.image_index]);
 
+        // set uniforms for the material.
+        glProgramUniform1ui(m_fshader, 0, (u32)material.flags);
+        glProgramUniform4fv(m_fshader, 1, 1, glm::value_ptr(material.base_color_factor));
+
         auto num_indices = prim.num_indices();
         u64 byte_offset = prim.indices_start;
 

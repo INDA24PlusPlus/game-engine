@@ -112,6 +112,7 @@ struct Material {
     };
 
     Flags flags;
+    glm::vec4 base_color_factor;
     u32 base_color_texture;
 };
 
