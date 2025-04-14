@@ -1,18 +1,151 @@
 #include "AssetImporter.h"
 
+#include <ktx.h>
+#include <tiny_gltf.h>
+
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <memory>
+#include <print>
 #include <string>
-#include <tiny_gltf.h>
+#include <thread>
+#include <type_traits>
+#include <unordered_map>
+#include <vector>
 
+#include "encoder/basisu_resampler.h"
 #include "glm/fwd.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include "../../../src/engine/utils/logging.h"
+
+static f32 srgb_to_linear(f32 srgb) {
+    return srgb <= 0.04045f ? srgb * (1.0f / 12.92f)
+                            : std::pow((srgb + 0.055f) * (1.0f / 1.055f), 2.4f);
+}
+
+static f32 linear_to_srgb(f32 linear) {
+    return linear <= 0.0031308f ? 12.92f * linear : 1.055f * std::pow(linear, 1.0f / 2.4f) - 0.055f;
+}
+
+static void check_resampler_status(basisu::Resampler& resampler, const char* filter) {
+    using Status = basisu::Resampler::Status;
+    switch (resampler.status()) {
+        case Status::STATUS_OKAY:
+            break;
+        case Status::STATUS_OUT_OF_MEMORY:
+            ERROR("Resampler or Resampler::put_line out of memory.");
+            exit(1);
+        case Status::STATUS_BAD_FILTER_NAME:
+            ERROR("Unknown filter: {}", filter);
+            exit(1);
+        case Status::STATUS_SCAN_BUFFER_FULL:
+            ERROR("Resampler::put_line scan buffer full.");
+            exit(1);
+    }
+}
+
+// Based on the resample function from the KTX 2.0 toktx tool.
+template <typename CompType, u32 num_comps>
+static void resample(u32 dst_width, u32 dst_height, std::span<CompType> dst_pixels, u32 src_width,
+                     u32 src_height, const std::vector<CompType>& src_pixels, bool is_srgb) {
+    if (std::max(src_width, src_height) > BASISU_RESAMPLER_MAX_DIMENSION ||
+        std::max(dst_width, dst_height) > BASISU_RESAMPLER_MAX_DIMENSION) {
+        ERROR("Image larger than max supported resampler dimension of {}",
+              BASISU_RESAMPLER_MAX_DIMENSION);
+        exit(1);
+    }
+
+    auto filter = "lanczos4";
+    f32 filter_scale = 1.0f;
+    auto wrap_mode = basisu::Resampler::Boundary_Op::BOUNDARY_CLAMP;
+
+    const bool is_hdr = std::is_floating_point_v<CompType>;
+
+    std::array<std::vector<f32>, num_comps> samples;
+    std::array<std::unique_ptr<basisu::Resampler>, num_comps> resamplers;
+
+    for (size_t i = 0; i < num_comps; ++i) {
+        resamplers[i] = std::make_unique<basisu::Resampler>(
+            src_width, src_height, dst_width, dst_height, wrap_mode, 0.0f, is_hdr ? 0.0f : 1.0f,
+            filter, i == 0 ? nullptr : resamplers[0]->get_clist_x(),
+            i == 0 ? nullptr : resamplers[0]->get_clist_y(), filter_scale, filter_scale, 0.0f,
+            0.0f);
+        check_resampler_status(*resamplers[i], filter);
+        samples[i].resize(src_width);
+    }
+
+    auto max_comp_value = std::numeric_limits<CompType>::max();
+
+    u32 dst_y = 0;
+    for (u32 src_y = 0; src_y < src_height; ++src_y) {
+        // Resamplers works on a per line basis with linear data.
+        for (u32 src_x = 0; src_x < src_width; ++src_x) {
+            for (u32 c = 0; c < num_comps; ++c) {
+                f32 value = (f32)src_pixels[(src_y * src_width + src_x) * num_comps + c];
+                if constexpr (!is_hdr) {
+                    value /= (f32)max_comp_value;
+                }
+
+                // Conver to linear space if we are in sRGB and if we are not the alpha component.
+                if (is_srgb && c < 3) {
+                    samples[c][src_x] = srgb_to_linear(value);
+                } else {
+                    samples[c][src_x] = value;
+                }
+            }
+        }
+
+        for (u32 c = 0; c < num_comps; ++c) {
+            if (!resamplers[c]->put_line(&samples[c][0])) {
+                check_resampler_status(*resamplers[c], filter);
+            }
+        }
+
+        while (true) {
+            std::array<const float*, num_comps> output_line{nullptr};
+            for (u32 c = 0; c < num_comps; ++c) {
+                output_line[c] = resamplers[c]->get_line();
+            }
+
+            if (output_line[0] == nullptr) {
+                break;  // We retrieved all the ouput lines. Time to place a new source line.
+            }
+
+            for (u32 dst_x = 0; dst_x < dst_width; ++dst_x) {
+                for (u32 c = 0; c < num_comps; c++) {
+                    float linear_value = output_line[c][dst_x];
+                    float output_value;
+
+                    if (is_srgb && c < 3) {
+                        output_value = linear_to_srgb(linear_value);
+                    } else {
+                        output_value = linear_value;
+                    }
+
+                    if constexpr (is_hdr) {
+                        dst_pixels[(dst_y * dst_width + dst_x) * num_comps + c] = output_value;
+                    } else {
+                        const f32 scaled = output_value * (f32)max_comp_value + 0.5f;
+                        const auto unorm_value = std::isnan(scaled) ? CompType{0}
+                                                 : scaled < 0.f     ? CompType{0}
+                                                 : scaled > max_comp_value
+                                                     ? CompType{max_comp_value}
+                                                     : static_cast<CompType>(scaled);
+                        dst_pixels[(dst_y * dst_width + dst_x) * num_comps + c] = unorm_value;
+                    }
+                }
+            }
+
+            ++dst_y;
+        }
+    }
+}
 
 template <typename T>
 static void dump_accessor(std::span<T>& out, const tinygltf::Model& model,
@@ -61,7 +194,6 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
     u32 num_elements = size_in_bytes / sizeof(T);
     u32 start = out.size();
 
-    
     out.resize(out.size() + num_elements);
     std::span<T> out_span(&out[start], num_elements);
 
@@ -72,10 +204,13 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
 void AssetImporter::load_asset(std::string path) {
     m_base_node = m_nodes.size();
     m_base_mesh = m_meshes.size();
+    m_base_texture = m_textures.size();
+    m_base_image = m_images.size();
+    m_base_sampler = m_samplers.size();
+    m_base_material = m_materials.size();
 
     tinygltf::Model model;
     tinygltf::TinyGLTF gltf;
-    gltf.RemoveImageLoader();
     std::string err;
     std::string warn;
 
@@ -94,6 +229,8 @@ void AssetImporter::load_asset(std::string path) {
     }
     load_meshes(model);
     load_nodes(model);
+    load_materials(model);
+    load_textures(model);
 }
 
 void AssetImporter::load_meshes(const tinygltf::Model& model) {
@@ -132,6 +269,13 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
     assert(prim.indices >= 0);
 
     u32 base_vertex = m_vertices.size();
+
+    // OpenGL requires that the offsets to index buffers are aligned to
+    // their respective index type and so we just align everything to 4 bytes.
+    while (m_indices.size() % 4 != 0) {
+        m_indices.push_back(0);
+    }
+
     u32 indices_start = m_indices.size();
 
     const auto& indices_accessor = model.accessors[prim.indices];
@@ -152,6 +296,7 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
         .indices_start = indices_start,
         .indices_end = indices_end,
         .index_type = (u32)indices_accessor.componentType,
+        .material_index = m_base_material + (u32)prim.material,
     });
     INFO("Parsed primitive");
 }
@@ -210,8 +355,15 @@ void AssetImporter::load_nodes(const tinygltf::Model& model) {
     for (size_t i = 0; i < scene.nodes.size(); ++i) {
         u32 our_node_index = m_nodes.size();
         m_nodes.resize(m_nodes.size() + 1);
-        load_node(model, scene.nodes[i], our_node_index - m_base_node);
+        load_node(model, scene.nodes[i], our_node_index);
         m_root_nodes.push_back(our_node_index);
+    }
+
+    for (size_t i = 0; i < m_mesh_names.size(); ++i) {
+        if (m_meshes[i].node_index == UINT32_MAX) {
+            ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
+            exit(1);
+        }
     }
 }
 
@@ -232,9 +384,9 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
             "there is a bug in our loader!");
         exit(1);
     }
-    m_node_map[m_base_node + gltf_node_index] = m_base_node + our_node_index;
+    m_node_map[m_base_node + gltf_node_index] = our_node_index;
 
-    auto& our_node = m_nodes[m_base_node + our_node_index];
+    auto& our_node = m_nodes[our_node_index];
     our_node = {
         .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
         .child_index = (u32)m_nodes.size(),
@@ -243,7 +395,7 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
     };
 
     if (gltf_node.mesh != -1) {
-        m_meshes[m_base_mesh + gltf_node.mesh].node_index = m_base_node + our_node_index;
+        m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
         INFO("Node references mesh {}", gltf_node.mesh);
     }
 
@@ -269,8 +421,212 @@ void AssetImporter::load_node(const tinygltf::Model& model, u32 gltf_node_index,
         assert(did_decompose);
     }
 
+    // After we resize we can no longer use the alias 'our_node'
     m_nodes.resize(m_nodes.size() + our_node.num_children);
-    for (size_t i = 0; i < our_node.num_children; i++) {
-        load_node(model, gltf_node.children[i], our_node.child_index + i);
+
+    for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
+        load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
+    }
+}
+
+void AssetImporter::load_textures(const tinygltf::Model& model) {
+    std::vector<bool> is_srgb;
+    determine_required_images(model, is_srgb);
+    load_samplers(model);
+    load_images(model, is_srgb);
+
+    for (size_t i = 0; i < model.textures.size(); ++i) {
+        const auto& texture = model.textures[i];
+
+        m_textures.push_back({
+            .sampler_index = m_base_sampler + texture.sampler,
+            .image_index = m_base_image + texture.source,
+        });
+    }
+}
+
+void AssetImporter::determine_required_images(const tinygltf::Model& model,
+                                              std::vector<bool>& is_srgb) {
+    is_srgb.resize(model.images.size(), false);
+    for (size_t i = 0; i < model.materials.size(); ++i) {
+        const auto& material = model.materials[i];
+        if (material.pbrMetallicRoughness.baseColorTexture.index != -1) {
+            u32 texture_index = material.pbrMetallicRoughness.baseColorTexture.index;
+            const auto& tex = model.textures[texture_index];
+            is_srgb[tex.source] = true;
+        }
+    }
+}
+
+void AssetImporter::load_samplers(const tinygltf::Model& model) {
+    constexpr u32 GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+    constexpr u32 GL_LINEAR = 0x2601;
+
+    for (size_t i = 0; i < model.samplers.size(); i++) {
+        const auto& sampler = model.samplers[i];
+        u32 min_filter = sampler.minFilter == -1 ? GL_LINEAR_MIPMAP_LINEAR : sampler.minFilter;
+        u32 mag_filter = sampler.magFilter == -1 ? GL_LINEAR : sampler.magFilter;
+        m_samplers.push_back({
+            .min_filter = min_filter,
+            .mag_filter = mag_filter,
+            .wrap_t = (u32)sampler.wrapT,
+            .wrap_s = (u32)sampler.wrapS,
+        });
+    }
+}
+
+static void gen_mipmaps(u32 width, u32 height, const std::vector<u8>& pixels, ktxTexture2* texture,
+                        bool is_srgb, u32 num_levels) {
+    INFO("Generating mipmaps...");
+    for (u32 level = 1; level < num_levels; ++level) {
+        INFO("Generating level {}", level);
+        u32 level_width = width >> level;
+        u32 level_height = height >> level;
+
+        size_t offset = 0;
+        ktxTexture2_GetImageOffset(texture, level, 0, 0, &offset);
+        auto data = ktxTexture_GetData(ktxTexture(texture));
+        auto size = ktxTexture_GetImageSize(ktxTexture(texture), level);
+        assert(size == level_width * level_height * 4);
+
+        resample<u8, 4>(level_width, level_height, std::span(data + offset, size), width, height,
+                        pixels, is_srgb);
+    }
+    INFO("Generated mipmaps.");
+}
+
+void AssetImporter::write_texture_to_image_data(ktxTexture2* texture) {
+    u64 total_compressed_size = 0;
+    for (u32 level = 0; level < texture->numLevels; ++level) {
+        auto level_size = ktxTexture_GetImageSize(ktxTexture(texture), level);
+        total_compressed_size += level_size;
+    }
+
+    u64 dst_offset = m_image_data.size();
+    m_image_data.resize(m_image_data.size() + total_compressed_size);
+
+    auto data = ktxTexture_GetData(ktxTexture(texture));
+    for (u32 level = 0; level < texture->numLevels; ++level) {
+        auto level_size = ktxTexture_GetImageSize(ktxTexture(texture), level);
+        size_t offset = 0;
+        ktxTexture2_GetImageOffset(texture, level, 0, 0, &offset);
+        INFO("Level {} is {} bytes", level, level_size);
+        INFO("Putting level {} at offset {}", level, dst_offset);
+
+        std::memcpy(&m_image_data[dst_offset], data + offset, level_size);
+        dst_offset += level_size;
+    }
+}
+
+void AssetImporter::compress_texture(ktxTexture2* texture) {
+    // Compress and then transcode to BC7
+    ktxBasisParams params = {0};
+    params.structSize = sizeof(params);
+    params.uastc = KTX_TRUE;
+    params.qualityLevel = 255;
+    params.threadCount = std::thread::hardware_concurrency();
+
+    INFO("Compressing image...");
+    auto result = ktxTexture2_CompressBasisEx(texture, &params);
+    if (result != KTX_SUCCESS) {
+        ERROR("Failed to compress image data.");
+        exit(1);
+    }
+
+    result = ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC7_RGBA, 0);
+    if (result != KTX_SUCCESS) {
+        ERROR("Failed to transcode image data to BC7.");
+        exit(1);
+    }
+    INFO("Compressed image");
+}
+
+void AssetImporter::load_image_data_into_texture(ktxTexture2* texture,
+                                                 const tinygltf::Image& image) {
+    size_t offset = 0;
+    ktxTexture2_GetImageOffset(texture, 0, 0, 0, &offset);
+
+    auto data = ktxTexture_GetData(ktxTexture(texture));
+    auto uncompressed_size = ktxTexture_GetImageSize(ktxTexture(texture), 0);
+    assert(uncompressed_size == (u32)image.width * (u32)image.height * 4);
+    std::memcpy(data + offset, image.image.data(), uncompressed_size);
+}
+
+void AssetImporter::load_images(const tinygltf::Model& model, const std::vector<bool>& is_srgb) {
+    for (size_t i = 0; i < model.images.size(); ++i) {
+        const auto& image = model.images[i];
+        u32 width = image.width;
+        u32 height = image.height;
+
+        u32 max_dim = std::max(width, height);
+        u32 mip_levels = (std::log2(max_dim) + 1);
+
+        m_images.push_back({
+            .width = width,
+            .height = height,
+            .num_levels = mip_levels,
+            .is_srb = is_srgb[i],
+            .image_data_index = m_image_data.size(),
+        });
+
+        constexpr u32 VK_FORMAT_R8G8B8A8_UNORM = 37;
+        constexpr u32 VK_FORMAT_R8G8B8A8_SRGB = 43;
+
+        constexpr u32 GL_RGBA8 = 0x8058;
+        constexpr u32 GL_SRGB8_ALPHA8 = 0x8C43;
+
+        // First create ktx texture for storing the RGBA data.
+        ktxTextureCreateInfo create_info = {
+            .glInternalformat = is_srgb[i] ? GL_SRGB8_ALPHA8 : GL_RGBA8,
+            .vkFormat = is_srgb[i] ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM,
+            .pDfd = nullptr,
+            .baseWidth = (u32)width,
+            .baseHeight = (u32)height,
+            .baseDepth = 1,
+            .numDimensions = 2,
+            .numLevels = mip_levels,
+            .numLayers = 1,
+            .numFaces = 1,
+            .isArray = KTX_FALSE,
+            .generateMipmaps = KTX_FALSE,
+        };
+        ktxTexture2* uncompressed;
+        auto result =
+            ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &uncompressed);
+        if (result != KTX_SUCCESS) {
+            ERROR("Failed to create storage for loaded image.");
+            exit(1);
+        }
+
+        load_image_data_into_texture(uncompressed, image);
+        gen_mipmaps(width, height, image.image, uncompressed, is_srgb[i], mip_levels);
+        compress_texture(uncompressed);
+        write_texture_to_image_data(uncompressed);
+
+        ktxTexture2_Destroy(uncompressed);
+    }
+}
+
+void AssetImporter::load_materials(const tinygltf::Model& model) {
+    for (size_t i = 0; i < model.materials.size(); ++i) {
+        const auto& material = model.materials[i];
+        const auto& base_color_factor = material.pbrMetallicRoughness.baseColorFactor;
+
+        u32 flags = 0;
+        if (material.pbrMetallicRoughness.baseColorTexture.index != -1) {
+            flags |= (u32)Material::Flags::has_base_color_texture;
+        }
+
+        if (material.doubleSided) {
+            WARN("glTF model has double sided material which will not be rendered correctly");
+        }
+
+        m_materials.push_back({
+            .flags = (Material::Flags)flags,
+            .base_color_factor = glm::vec4(base_color_factor[0], base_color_factor[1],
+                                           base_color_factor[2], base_color_factor[3]),
+            .base_color_texture =
+                m_base_texture + material.pbrMetallicRoughness.baseColorTexture.index,
+        });
     }
 }

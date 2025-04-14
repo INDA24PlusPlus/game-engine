@@ -24,3 +24,5 @@ build
 !LICENSE
 !start.sh
 !*.md
+
+*.bin
