@@ -36,11 +36,12 @@ static void write_mesh_names(const AssetImporter& importer, std::ofstream& out_f
 }
 
 int main(int argc, const char** argv) {
-    AssetImporter importer;
     if (argc <= 1) {
         std::println("Usage {} <gltf_file> <gltf_file>...", argv[0]);
         exit(1);
     }
+
+    AssetImporter importer(argv[0]);
 
     for (int i = 1; i < argc; i++) {
         importer.load_asset(argv[i]);

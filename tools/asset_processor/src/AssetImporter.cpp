@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <print>
@@ -23,6 +24,21 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "../../../src/engine/utils/logging.h"
+
+constexpr bool verbose_accessor_logging = false;
+
+u64 hash_fnv1a(std::span<const uint8_t> data) {
+    const u64 fnv_offset = 14695981039346656037ull;
+    const u64 fnv_prime = 1099511628211ull;
+
+    u64 hash = fnv_offset;
+    for (uint8_t byte : data) {
+        hash ^= byte;
+        hash *= fnv_prime;
+    }
+
+    return hash;
+}
 
 static f32 srgb_to_linear(f32 srgb) {
     return srgb <= 0.04045f ? srgb * (1.0f / 12.92f)
@@ -171,20 +187,22 @@ template <typename T>
 static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& model,
                                  const tinygltf::Accessor& accessor,
                                  bool allow_size_mismatch = false) {
-    INFO("------------- Dumping accessor... -------------");
     assert(accessor.type > 0);
     u32 accessor_comp_size = tinygltf::GetComponentSizeInBytes(accessor.componentType);
     u32 accessor_num_comp = tinygltf::GetNumComponentsInType(accessor.type);
     u32 accessor_elem_size = accessor_num_comp * accessor_comp_size;
     u32 size_in_bytes = accessor.count * accessor_elem_size;
 
-    INFO("Num accessor elems: {}", accessor.count);
-    INFO("Accesor comp size: {}", accessor_comp_size);
-    INFO("Accesor num comp in elem: {}", accessor_num_comp);
-    INFO("Accessor elem size: {}", accessor_elem_size);
-    INFO("Accessor size in bytes: {}", size_in_bytes);
+    if constexpr (verbose_accessor_logging) {
+        INFO("------------- Dumping accessor... -------------");
+        INFO("Num accessor elems: {}", accessor.count);
+        INFO("Accesor comp size: {}", accessor_comp_size);
+        INFO("Accesor num comp in elem: {}", accessor_num_comp);
+        INFO("Accessor elem size: {}", accessor_elem_size);
+        INFO("Accessor size in bytes: {}", size_in_bytes);
+        INFO("allow size mismatch?: {}", allow_size_mismatch);
+    }
 
-    INFO("allow size mismatch?: {}", allow_size_mismatch);
     if (sizeof(T) != accessor_elem_size && !allow_size_mismatch) {
         ERROR("Provided type has size of {} but accessor element size is {}", sizeof(T),
               accessor_elem_size);
@@ -198,7 +216,18 @@ static void dump_accessor_append(std::vector<T>& out, const tinygltf::Model& mod
     std::span<T> out_span(&out[start], num_elements);
 
     dump_accessor(out_span, model, accessor);
-    INFO("------------- Dumped accessor -------------");
+}
+
+AssetImporter::AssetImporter(std::string exe_path) {
+    auto exe_dir = std::filesystem::path(exe_path).parent_path();
+    m_cache_dir = exe_dir.concat("/.texture_cache" ).string();
+
+
+    if (!std::filesystem::exists(m_cache_dir)) {
+        std::filesystem::create_directory(m_cache_dir);
+    }
+
+    INFO("Cache dir is {}", m_cache_dir);
 }
 
 void AssetImporter::load_asset(std::string path) {
@@ -260,8 +289,6 @@ void AssetImporter::load_meshes(const tinygltf::Model& model) {
             .num_primitives = (u32)mesh.primitives.size(),
             .node_index = UINT32_MAX,
         });
-
-        INFO("Parsed mesh");
     }
 }
 
@@ -298,7 +325,6 @@ void AssetImporter::load_primitive(const tinygltf::Model& model, const tinygltf:
         .index_type = (u32)indices_accessor.componentType,
         .material_index = m_base_material + (u32)prim.material,
     });
-    INFO("Parsed primitive");
 }
 
 void AssetImporter::load_vertices(const tinygltf::Model& model, const tinygltf::Primitive prim) {
@@ -510,9 +536,6 @@ void AssetImporter::write_texture_to_image_data(ktxTexture2* texture) {
         auto level_size = ktxTexture_GetImageSize(ktxTexture(texture), level);
         size_t offset = 0;
         ktxTexture2_GetImageOffset(texture, level, 0, 0, &offset);
-        INFO("Level {} is {} bytes", level, level_size);
-        INFO("Putting level {} at offset {}", level, dst_offset);
-
         std::memcpy(&m_image_data[dst_offset], data + offset, level_size);
         dst_offset += level_size;
     }
@@ -552,6 +575,50 @@ void AssetImporter::load_image_data_into_texture(ktxTexture2* texture,
     std::memcpy(data + offset, image.image.data(), uncompressed_size);
 }
 
+ktxTexture2* AssetImporter::write_to_texture_cache(const tinygltf::Image& image, bool is_srgb,
+                                                   u32 mip_levels, std::string_view path) {
+    constexpr u32 VK_FORMAT_R8G8B8A8_UNORM = 37;
+    constexpr u32 VK_FORMAT_R8G8B8A8_SRGB = 43;
+
+    constexpr u32 GL_RGBA8 = 0x8058;
+    constexpr u32 GL_SRGB8_ALPHA8 = 0x8C43;
+
+    // First create ktx texture for storing the RGBA data.
+    ktxTextureCreateInfo create_info = {
+        .glInternalformat = is_srgb ? GL_SRGB8_ALPHA8 : GL_RGBA8,
+        .vkFormat = is_srgb ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM,
+        .pDfd = nullptr,
+        .baseWidth = (u32)image.width,
+        .baseHeight = (u32)image.height,
+        .baseDepth = 1,
+        .numDimensions = 2,
+        .numLevels = mip_levels,
+        .numLayers = 1,
+        .numFaces = 1,
+        .isArray = KTX_FALSE,
+        .generateMipmaps = KTX_FALSE,
+    };
+    ktxTexture2* uncompressed;
+    auto result = ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &uncompressed);
+    if (result != KTX_SUCCESS) {
+        ERROR("Failed to create storage for loaded image.");
+        exit(1);
+    }
+
+    load_image_data_into_texture(uncompressed, image);
+    gen_mipmaps(image.width, image.height, image.image, uncompressed, is_srgb, mip_levels);
+    compress_texture(uncompressed);
+
+    result = ktxTexture2_WriteToNamedFile(uncompressed, path.data());
+    if (result != KTX_SUCCESS) {
+        ERROR("Failed to write texture to texture cache!");
+        exit(1);
+    }
+
+    INFO("Saved image in texture cache");
+    return uncompressed;
+}
+
 void AssetImporter::load_images(const tinygltf::Model& model, const std::vector<bool>& is_srgb) {
     for (size_t i = 0; i < model.images.size(); ++i) {
         const auto& image = model.images[i];
@@ -569,41 +636,25 @@ void AssetImporter::load_images(const tinygltf::Model& model, const std::vector<
             .image_data_index = m_image_data.size(),
         });
 
-        constexpr u32 VK_FORMAT_R8G8B8A8_UNORM = 37;
-        constexpr u32 VK_FORMAT_R8G8B8A8_SRGB = 43;
+        auto texture_hash = hash_fnv1a(image.image);
+        auto hash_in_hex = std::format("{:016x}", texture_hash);
+        auto path = m_cache_dir + "/" + hash_in_hex;
 
-        constexpr u32 GL_RGBA8 = 0x8058;
-        constexpr u32 GL_SRGB8_ALPHA8 = 0x8C43;
-
-        // First create ktx texture for storing the RGBA data.
-        ktxTextureCreateInfo create_info = {
-            .glInternalformat = is_srgb[i] ? GL_SRGB8_ALPHA8 : GL_RGBA8,
-            .vkFormat = is_srgb[i] ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM,
-            .pDfd = nullptr,
-            .baseWidth = (u32)width,
-            .baseHeight = (u32)height,
-            .baseDepth = 1,
-            .numDimensions = 2,
-            .numLevels = mip_levels,
-            .numLayers = 1,
-            .numFaces = 1,
-            .isArray = KTX_FALSE,
-            .generateMipmaps = KTX_FALSE,
-        };
-        ktxTexture2* uncompressed;
-        auto result =
-            ktxTexture2_Create(&create_info, KTX_TEXTURE_CREATE_ALLOC_STORAGE, &uncompressed);
-        if (result != KTX_SUCCESS) {
-            ERROR("Failed to create storage for loaded image.");
-            exit(1);
+        ktxTexture2* texture;
+        if (std::filesystem::exists(path)) {
+            INFO("Found image in texture cache");
+            auto result = ktxTexture2_CreateFromNamedFile(
+                path.c_str(), KTX_TEXTURE_CREATE_ALLOC_STORAGE, &texture);
+            if (result != KTX_SUCCESS) {
+                ERROR("Image was found in the cache but we failed to read it?");
+                exit(1);
+            }
+        } else {
+            texture = write_to_texture_cache(image, is_srgb[i], mip_levels, path);
         }
 
-        load_image_data_into_texture(uncompressed, image);
-        gen_mipmaps(width, height, image.image, uncompressed, is_srgb[i], mip_levels);
-        compress_texture(uncompressed);
-        write_texture_to_image_data(uncompressed);
-
-        ktxTexture2_Destroy(uncompressed);
+        write_texture_to_image_data(texture);
+        ktxTexture2_Destroy(texture);
     }
 }
 

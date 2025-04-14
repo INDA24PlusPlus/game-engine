@@ -1,13 +1,14 @@
 #ifndef _ASSET_IMPORTER_H
 #define _ASSET_IMPORTER_H
 
+#include <ktx.h>
 #include <tiny_gltf.h>
 
 #include <string>
 #include <unordered_map>
-#include <ktx.h>
 
 #include "../../../src/engine/Scene.h"
+
 
 using namespace engine;
 
@@ -19,8 +20,15 @@ struct AssetImporter {
     u32 m_base_sampler;
     u32 m_base_material;
 
+    AssetImporter() = delete;
+    AssetImporter(std::string exe_path);
+
+    std::string m_cache_dir;
+
     // Maps the GLTF files node indices to our own.
     std::unordered_map<u32, u32> m_node_map;
+
+    // Mesh name -> mesh index
     std::unordered_map<std::string, u32> m_mesh_names;
 
     std::vector<u8> m_indices;
@@ -52,6 +60,8 @@ struct AssetImporter {
     void write_texture_to_image_data(ktxTexture2* texture);
     void compress_texture(ktxTexture2* texture);
     void load_image_data_into_texture(ktxTexture2* texture, const tinygltf::Image& image);
+    ktxTexture2* write_to_texture_cache(const tinygltf::Image& image, bool is_srgb, u32 mip_levels,
+                                        std::string_view path);
 };
 
 #endif
