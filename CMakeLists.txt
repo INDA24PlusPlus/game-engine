@@ -5,14 +5,16 @@ include(FetchContent)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS  ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SOURCE_FILES
     src/game/main.cpp
+    src/game/gui.cpp
     src/engine/utils/logging.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
     src/engine/Scene.cpp
+    src/engine/Input.cpp
     vendor/glad/src/glad.c
 )
 
@@ -39,6 +41,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(glm glfw imgui)
 
 add_executable(game_engine ${SOURCE_FILES})
+set_target_properties(game_engine PROPERTIES
+    CXX_STANDARD 23
+    CXX_STANDARD_REQUIRED ON
+)
 target_include_directories(game_engine PRIVATE src)
 
 # GLM
