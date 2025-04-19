@@ -18,16 +18,14 @@ class Prefs {
 
     bool contains(const char *key);
     bool remove(const char *key);
-    bool clear();
+    void clear();
+    // Save all prefs to the file
+    void flush();
 
-    // Save all prefs to file (for changes where save wasn't true when calling
-    // set_* methods)
-    void save();
-
-    void set_int(const char *key, int value, bool save = true);
-    void set_float(const char *key, float value, bool save = true);
-    void set_bool(const char *key, bool value, bool save = true);
-    void set_string(const char *key, const std::string &value, bool save = true);
+    void put_int(const char *key, int value);
+    void put_float(const char *key, float value);
+    void put_bool(const char *key, bool value);
+    void put_string(const char *key, const std::string &value);
 
     int get_int(const char *key);
     float get_float(const char *key);
@@ -40,5 +38,6 @@ class Prefs {
     std::string get_string_or(const char *key, const std::string &fallback);
 
   private:
+    std::string prefs_path;
     std::unordered_map<const char *, PrefEntry> internal_storage;
 };
