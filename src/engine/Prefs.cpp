@@ -1,12 +1,20 @@
-#include "prefs.h"
+#include "Prefs.h"
 
 #include <fstream>
 #include <iostream>
 #include <sstream>
 
-Prefs::Prefs(const char *path) {
+// personal todo:
+// - test everything
+// - implement flush
+// - better error handling
+// - follow project conventions (logging etc)
+// - maybe an array type or vec2/3/4 type
+
+Prefs::Prefs(const char *path) : prefs_path(path) {
     std::ifstream file(path);
     if (!file) {
+        // Create new prefs file
         std::ofstream new_file(path);
         if (!new_file) {
             std::cout << "ERR: Failed to create prefs file" << '\n';
@@ -20,6 +28,8 @@ Prefs::Prefs(const char *path) {
             std::string key, value, type;
             if (std::getline(file, key, ' ') && std::getline(file, value, ' ') && std::getline(file, type)) {
                 PrefValueType value_type;
+
+                // parse type
                 if (type == "int")
                     value_type = PrefValueType::INT;
                 else if (type == "float")
@@ -33,42 +43,85 @@ Prefs::Prefs(const char *path) {
                     continue;
                 }
 
+                // save to internal storage
                 internal_storage[key.c_str()] = PrefEntry{.type = value_type, .value = value};
             }
         }
     }
 }
 
-Prefs::~Prefs() { save(); }
+Prefs::~Prefs() { flush(); }
 
-bool Prefs::contains(const char *key) { return false; }
+bool Prefs::contains(const char *key) { return internal_storage.find(key) != internal_storage.end(); }
 
-bool Prefs::remove(const char *key) { return false; }
+bool Prefs::remove(const char *key) { internal_storage.erase(key); }
 
-bool Prefs::clear() { return false; }
+void Prefs::clear() { internal_storage.clear(); }
 
-void Prefs::save() {}
+void Prefs::flush() {
+    // TODO
+}
 
-void Prefs::set_int(const char *key, int value, bool save = true) {}
+void Prefs::put_int(const char *key, int value) {
+    internal_storage[key] = PrefEntry{.type = PrefValueType::INT, .value = std::to_string(value)};
+}
 
-void Prefs::set_float(const char *key, float value, bool save = true) {}
+void Prefs::put_float(const char *key, float value) {
+    internal_storage[key] = PrefEntry{.type = PrefValueType::FLOAT, .value = std::to_string(value)};
+}
 
-void Prefs::set_bool(const char *key, bool value, bool save = true) {}
+void Prefs::put_bool(const char *key, bool value) {
+    internal_storage[key] = PrefEntry{.type = PrefValueType::BOOL, .value = value ? "true" : "false"};
+}
 
-void Prefs::set_string(const char *key, const std::string &value, bool save = true) {}
+void Prefs::put_string(const char *key, const std::string &value) {
+    internal_storage[key] = PrefEntry{.type = PrefValueType::STRING, .value = value};
+}
 
-int Prefs::get_int(const char *key) { return 0; }
+int Prefs::get_int(const char *key) { return std::stoi(internal_storage[key].value); }
 
-float Prefs::get_float(const char *key) { return 0.0f; }
+float Prefs::get_float(const char *key) { return std::stof(internal_storage[key].value); }
 
-bool Prefs::get_bool(const char *key) { return false; }
+bool Prefs::get_bool(const char *key) { return internal_storage[key].value == "true"; }
 
-std::string Prefs::get_string(const char *key) { return std::string(); }
+std::string Prefs::get_string(const char *key) { return internal_storage[key].value; }
 
-int Prefs::get_int_or(const char *key, int fallback) { return 0; }
+int Prefs::get_int_or(const char *key, int fallback) {
+    if (!contains(key))
+        return fallback;
 
-float Prefs::get_float_or(const char *key, float fallback) { return 0.0f; }
+    if (internal_storage[key].type != PrefValueType::INT)
+        return fallback;
 
-bool Prefs::get_bool_or(const char *key, bool fallback) { return false; }
+    return get_int(key);
+}
 
-std::string Prefs::get_string_or(const char *key, const std::string &fallback) { return std::string(); }
+float Prefs::get_float_or(const char *key, float fallback) {
+    if (!contains(key))
+        return fallback;
+
+    if (internal_storage[key].type != PrefValueType::FLOAT)
+        return fallback;
+
+    return get_float(key);
+}
+
+bool Prefs::get_bool_or(const char *key, bool fallback) {
+    if (!contains(key))
+        return fallback;
+
+    if (internal_storage[key].type != PrefValueType::BOOL)
+        return fallback;
+
+    return get_bool(key);
+}
+
+std::string Prefs::get_string_or(const char *key, const std::string &fallback) {
+    if (!contains(key))
+        return fallback;
+
+    if (internal_storage[key].type != PrefValueType::STRING)
+        return fallback;
+
+    return get_string(key);
+}
