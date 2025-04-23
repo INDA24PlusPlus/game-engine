@@ -184,9 +184,9 @@ int main(void) {
 
         // Draw
         state.renderer.clear();
-        state.renderer.begin_pass(state.camera, width, height);
-        state.renderer.draw_mesh(state.scene, helmet_mesh, player_transform);
-        state.renderer.draw_mesh(state.scene, sponza_mesh);
+        state.renderer.begin_pass(state.scene, state.camera, width, height);
+        state.renderer.draw_mesh(helmet_mesh, player_transform);
+        state.renderer.draw_mesh(sponza_mesh);
         state.renderer.end_pass();
 
         gui::render();

@@ -1,4 +1,5 @@
 #include "Scene.h"
+
 #include <cstdint>
 #include <fstream>
 
@@ -7,9 +8,18 @@
 namespace engine {
 
 template <typename T>
-static std::span<T> read_asset_data(u8*& ptr, u32 count) {
+static std::span<T> read_asset_data(u8*& ptr, u32 count, u8* end_of_file_Ptr) {
+    size_t size_to_read = count * sizeof(T);
+    if (ptr + size_to_read > end_of_file_Ptr) {
+        ERROR(
+            "Tried to read past the end of the asset file! This is a bug or the the asset format "
+            "was updated and changes were not made to the parser! (Also remember to update the "
+            "version number)");
+        exit(1);
+    }
+
     auto ret = std::span<T>((T*)ptr, count);
-    ptr += count * sizeof(T);
+    ptr += size_to_read;
     return ret;
 }
 
@@ -29,8 +39,19 @@ void Scene::load_asset_file(const char* path) {
 
     file.close();
 
+    constexpr u32 expected_version = 1;
+
     AssetHeader* header = (AssetHeader*)m_asset_file_mem.data();
+    if (header->version != expected_version) {
+        ERROR(
+            "Expected asset file version of {} but got {}, re-build and re-run the asset "
+            "processor!",
+            expected_version, header->version);
+        exit(1);
+    }
+
     INFO("------- Asset Header -------");
+    INFO("Header version: {}", header->version);
     INFO("Num Indices: {}", header->num_indices);
     INFO("Num Vertices: {}", header->num_vertices);
     INFO("Num Meshe: {}", header->num_meshes);
@@ -43,19 +64,20 @@ void Scene::load_asset_file(const char* path) {
     INFO("Num materials: {}", header->num_materials);
     INFO("Asset file is {} bytes ({} MB)", m_asset_file_mem.size(), m_asset_file_mem.size() >> 20);
 
+    u8* end_ptr  = m_asset_file_mem.end()._Unwrapped();
     u8* ptr = m_asset_file_mem.data() + sizeof(AssetHeader);
 
-    m_indices = read_asset_data<u8>(ptr, header->num_indices);
-    m_vertices = read_asset_data<Vertex>(ptr, header->num_vertices);
-    m_meshes = read_asset_data<Mesh>(ptr, header->num_meshes);
-    m_primitives = read_asset_data<Primitive>(ptr, header->num_primitives);
-    m_nodes = read_asset_data<Node>(ptr, header->num_nodes);
-    m_root_nodes = read_asset_data<u32>(ptr, header->num_root_nodes);
-    m_samplers = read_asset_data<SamplerInfo>(ptr, header->num_samplers);
-    m_images = read_asset_data<ImageInfo>(ptr, header->num_images);
-    m_textures = read_asset_data<TextureInfo>(ptr, header->num_textures);
-    m_materials = read_asset_data<Material>(ptr, header->num_materials);
-    m_image_data = read_asset_data<u8>(ptr, header->num_image_bytes);
+    m_indices = read_asset_data<u8>(ptr, header->num_indices, end_ptr);
+    m_vertices = read_asset_data<Vertex>(ptr, header->num_vertices, end_ptr);
+    m_meshes = read_asset_data<Mesh>(ptr, header->num_meshes, end_ptr);
+    m_primitives = read_asset_data<Primitive>(ptr, header->num_primitives, end_ptr);
+    m_nodes = read_asset_data<Node>(ptr, header->num_nodes, end_ptr);
+    m_root_nodes = read_asset_data<u32>(ptr, header->num_root_nodes, end_ptr);
+    m_samplers = read_asset_data<SamplerInfo>(ptr, header->num_samplers, end_ptr);
+    m_images = read_asset_data<ImageInfo>(ptr, header->num_images, end_ptr);
+    m_textures = read_asset_data<TextureInfo>(ptr, header->num_textures, end_ptr);
+    m_materials = read_asset_data<Material>(ptr, header->num_materials, end_ptr);
+    m_image_data = read_asset_data<u8>(ptr, header->num_image_bytes, end_ptr);
     read_mesh_names(ptr);
 
     u64 bytes_read = (u64)(ptr - m_asset_file_mem.data());

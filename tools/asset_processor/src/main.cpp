@@ -1,10 +1,8 @@
 #include <fstream>
-#include <ostream>
 #include <print>
 
 #include "../../../src/engine/utils/logging.h"
 #include "AssetImporter.h"
-
 
 template <typename T>
 void write_data(std::vector<T>& data, std::ofstream& stream, u32& num_bytes_written) {
@@ -47,19 +45,7 @@ int main(int argc, const char** argv) {
         importer.load_asset(argv[i]);
     }
 
-    AssetHeader header;
-    header.num_indices = importer.m_indices.size();
-    header.num_vertices = importer.m_vertices.size();
-    header.num_meshes = importer.m_meshes.size();
-    header.num_primitives = importer.m_primitives.size();
-    header.num_nodes = importer.m_nodes.size();
-    header.num_root_nodes = importer.m_root_nodes.size();
-    header.num_samplers = importer.m_samplers.size();
-    header.num_images = importer.m_images.size();
-    header.num_textures = importer.m_textures.size();
-    header.num_materials = importer.m_materials.size();
-    header.num_image_bytes = importer.m_image_data.size();
-
+    AssetHeader header = importer.header();
     std::ofstream out_file("scene_data.bin", std::ios::binary);
 
     // Write header.

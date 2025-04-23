@@ -54,6 +54,15 @@ void gui::build(State &state) {
     ImGui::DragFloat("Camera position", (f32*)&state.camera.m_speed);
     ImGui::End();
 
+    ImGui::Begin("Light positions", nullptr);
+    static int light_index = 0;
+    static glm::vec3 light_positions[5];
+    ImGui::SliderInt("Light index", &light_index, 0, 4);
+    if (ImGui::DragFloat3("Position", (f32*)&light_positions[light_index])) {
+        state.renderer.update_light_positions(light_index, glm::vec4(light_positions[light_index], 0.0f));
+    }
+    ImGui::End();
+
     static i32 selected_node = 0;
     ImGui::Begin("Node Editor", nullptr);
     ImGui::SliderInt("Selected Node", &selected_node, 0, state.scene.m_nodes.size() - 1);

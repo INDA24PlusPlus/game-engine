@@ -15,6 +15,9 @@ set(SOURCE_FILES
     src/engine/Camera.cpp
     src/engine/Scene.cpp
     src/engine/Input.cpp
+    src/engine/graphics/Pipeline.cpp
+    src/engine/graphics/Image.cpp
+    src/engine/graphics/Sampler.cpp
     vendor/glad/src/glad.c
 )
 

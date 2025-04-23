@@ -4,8 +4,6 @@
 !src/**
 !tools/
 !tools/**
-!assets/
-!assets/**
 !vendor/
 !vendor/**
 
