@@ -64,7 +64,7 @@ void Scene::load_asset_file(const char* path) {
     INFO("Num materials: {}", header->num_materials);
     INFO("Asset file is {} bytes ({} MB)", m_asset_file_mem.size(), m_asset_file_mem.size() >> 20);
 
-    u8* end_ptr  = m_asset_file_mem.end()._Unwrapped();
+    u8* end_ptr  = m_asset_file_mem.data() + m_asset_file_mem.size();
     u8* ptr = m_asset_file_mem.data() + sizeof(AssetHeader);
 
     m_indices = read_asset_data<u8>(ptr, header->num_indices, end_ptr);
