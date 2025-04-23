@@ -22,4 +22,5 @@ struct State {
     f32 sensitivity;
 
     Player player;
+    Player enemy; // well maybe the struct should be something else
 };

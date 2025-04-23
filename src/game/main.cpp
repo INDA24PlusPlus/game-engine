@@ -7,7 +7,9 @@
 #include "engine/Scene.h"
 #include "engine/core.h"
 #include "engine/utils/logging.h"
+#include "glm/ext/quaternion_common.hpp"
 #include "glm/fwd.hpp"
+#include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "gui.h"
 #include "state.h"
@@ -94,7 +96,15 @@ int main(void) {
     state.player.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     // Should probably always be 1
     state.player.scale = glm::vec3(1.0f);
+    state.player.speed = 10;
+    
+    // Init enemy
+    state.enemy.position = glm::vec3(20, 0, 20);
+    state.enemy.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    state.enemy.scale = glm::vec3(1.0f);
+    state.enemy.speed = 3;
 
+    
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
         state.curr_time = glfwGetTime();
@@ -138,7 +148,7 @@ int main(void) {
                 forward = glm::normalize(forward);
                 right = glm::normalize(right);
                 auto movement = (right * direction.x + forward * direction.z) *
-                                state.camera.m_speed * state.delta_time;
+                                state.player.speed * state.delta_time;
                 state.player.position += movement;
 
                 glm::quat target_rotation =
@@ -163,6 +173,18 @@ int main(void) {
             }
         }
 
+        // ememy movement
+        {
+            glm::vec3 enemy_move = state.player.position - state.enemy.position;
+            enemy_move.y = 0;
+            if (enemy_move.x != 0 || enemy_move.z != 0)
+                enemy_move = glm::normalize(enemy_move);
+
+            glm::quat target_rotation = glm::quatLookAt(enemy_move, glm::vec3(0, 1, 0));
+            state.enemy.position += enemy_move * state.enemy.speed * state.delta_time;
+            state.enemy.rotation = glm::slerp(state.enemy.rotation, target_rotation, state.delta_time * 8.0f);
+        }
+
         // mouse input
         if (state.mouse_locked) {
             glm::vec2 mouse_delta = input.get_mouse_position_delta();
@@ -182,10 +204,19 @@ int main(void) {
             player_transform = T * R * S;
         }
 
+        glm::mat4 enemy_transform;
+        {
+            auto T = glm::translate(glm::mat4(1.0f), state.enemy.position);
+            auto R = glm::mat4_cast(state.enemy.rotation);
+            auto S = glm::scale(glm::mat4(1.0f), state.enemy.scale);
+            enemy_transform = T * R * S;
+        }
+
         // Draw
         state.renderer.clear();
         state.renderer.begin_pass(state.scene, state.camera, width, height);
         state.renderer.draw_mesh(helmet_mesh, player_transform);
+        state.renderer.draw_mesh(helmet_mesh, enemy_transform);
         state.renderer.draw_mesh(sponza_mesh);
         state.renderer.end_pass();
 
