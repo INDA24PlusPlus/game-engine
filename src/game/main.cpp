@@ -90,10 +90,10 @@ int main(void) {
 
     // Someway to the store the player transform for now.
     // just temporaryily.
-    auto player_position = glm::vec3(0.0f);
-    auto player_rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    state.player.position = glm::vec3(0.0f);
+    state.player.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     // Should probably always be 1
-    auto player_scale = glm::vec3(1.0f);
+    state.player.scale = glm::vec3(1.0f);
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
@@ -139,13 +139,13 @@ int main(void) {
                 right = glm::normalize(right);
                 auto movement = (right * direction.x + forward * direction.z) *
                                 state.camera.m_speed * state.delta_time;
-                player_position += movement;
+                state.player.position += movement;
 
                 glm::quat target_rotation =
                     glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
 
-                player_rotation =
-                    glm::slerp(player_rotation, target_rotation, state.delta_time * 8.0f);
+                state.player.rotation =
+                    glm::slerp(state.player.rotation, target_rotation, state.delta_time * 8.0f);
 
                 // camera movement
 
@@ -155,7 +155,7 @@ int main(void) {
                 // state.camera.m_pos = state.scene.m_nodes[1].translation +
                 // state.camera.m_orientation * glm::vec3(0,0,10);
                 glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                glm::vec3 camera_target_position = player_position + camera_offset;
+                glm::vec3 camera_target_position = state.player.position + camera_offset;
                 state.camera.m_pos =
                     glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
                 state.camera.m_orientation =
@@ -176,9 +176,9 @@ int main(void) {
 
         glm::mat4 player_transform;
         {
-            auto T = glm::translate(glm::mat4(1.0f), player_position);
-            auto R = glm::mat4_cast(player_rotation);
-            auto S = glm::scale(glm::mat4(1.0f), player_scale);
+            auto T = glm::translate(glm::mat4(1.0f), state.player.position);
+            auto R = glm::mat4_cast(state.player.rotation);
+            auto S = glm::scale(glm::mat4(1.0f), state.player.scale);
             player_transform = T * R * S;
         }
 

@@ -2,6 +2,7 @@
 #include "engine/Camera.h"
 #include "engine/Scene.h"
 #include "engine/Renderer.h"
+#include "game/player.h"
 
 struct State {
     engine::Scene scene;
@@ -19,4 +20,6 @@ struct State {
     u32 fps_counter_index;
 
     f32 sensitivity;
+
+    Player player;
 };
