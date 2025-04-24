@@ -15,6 +15,9 @@ set(SOURCE_FILES
     src/engine/Camera.cpp
     src/engine/Scene.cpp
     src/engine/Input.cpp
+    src/engine/network/network.cpp
+    src/engine/network/client.cpp
+    src/engine/network/server.cpp
     vendor/glad/src/glad.c
 )
 

@@ -74,8 +74,6 @@ void Server::get_positions() {
     n = recvfrom(this->udp, (char *)&buffer, sizeof(client_position_update),
                  MSG_WAITALL, nullptr, nullptr);
 
-    printf("(%f, %f, %f)\n", buffer.x, buffer.y, buffer.rot);
-
     this->clients[buffer.id].x = buffer.x;
     this->clients[buffer.id].y = buffer.y;
     this->clients[buffer.id].rot = buffer.rot;
@@ -98,8 +96,6 @@ void Server::send_positions() {
              (const struct sockaddr *)&this->clients[i].address,
              sizeof(this->clients[i].address));
     }
-
-    sleep(1);
   }
 }
 
@@ -128,7 +124,8 @@ void Server::accept_client() {
     //
     client_request request;
 
-    if (recv(this->clients[this->current_players].socket, (char *)&request, sizeof(client_request), 0) < 0) {
+    if (recv(this->clients[this->current_players].socket, (char *)&request,
+             sizeof(client_request), 0) < 0) {
       perror("failed to get client port");
       exit(EXIT_FAILURE);
     }
