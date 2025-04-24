@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <unistd.h>
 
 typedef struct {
@@ -17,8 +18,10 @@ typedef struct {
 
 class Client {
 public:
-  Client(char *client_port, char *server_address, char *server_port);
+  Client();
+  int get_id();
   PlayerPosition get_position(int id);
+  void connect_to_server(char *server_address, char *server_port);
   void send_position(float x, float y, float rot);
   void quit();
 
@@ -31,4 +34,5 @@ private:
   sockaddr_in address;
   int udp;
   int tcp;
+  std::thread get_thread;
 };

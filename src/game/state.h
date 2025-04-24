@@ -6,7 +6,6 @@
 #include "engine/scene/Scene.h"
 #include "game/player.h"
 
-
 struct State {
     engine::Scene scene;
     engine::Camera camera;

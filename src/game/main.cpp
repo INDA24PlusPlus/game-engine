@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
+#include <thread>
 
 #include "engine/AssetLoader.h"
 #include "engine/Input.h"
@@ -23,6 +24,9 @@
 #include "glm/detail/qualifier.hpp"
 #include "glm/ext/quaternion_common.hpp"
 #include "glm/ext/quaternion_geometric.hpp"
+#include "engine/network/network.hpp"
+#include "engine/utils/logging.h"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
@@ -275,7 +279,8 @@ static void gen_world(engine::NodeHierarchy &hierarchy, engine::Scene &scene,
   }
 }
 
-int main(void) {
+
+int main(int argc, char **argv) {
   if (!glfwInit()) {
     fatal("Failed to initiliaze glfw");
   }

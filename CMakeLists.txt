@@ -31,6 +31,9 @@ set(SOURCE_FILES
     src/engine/graphics/Pipeline.cpp
     src/engine/graphics/Image.cpp
     src/engine/graphics/Sampler.cpp
+    src/engine/network/network.cpp
+    src/engine/network/client.cpp
+    src/engine/network/server.cpp
     vendor/glad/src/glad.c
 )
 
