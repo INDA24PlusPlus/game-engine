@@ -8,12 +8,12 @@ struct Iterator {
 
 class EntityArray {
     private:
-        Entity* data;
-        u32* idxs;
+        Entity data[MAX_ENTITIES];
+        u32 idxs[MAX_ENTITIES];
         u32 head;
         u32 size;
     public:
-        EntityArray(u32 s);
+        EntityArray();
 
         ~EntityArray();
 
@@ -24,4 +24,6 @@ class EntityArray {
         bool is_in(Entity e);
 
         bool next(Iterator &it, Entity &e);
+
+        Entity *first();
 };

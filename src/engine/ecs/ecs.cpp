@@ -20,3 +20,4 @@ void ECS::destroy_entity(Entity entity) {
     component_manager->destroy_entity(entity);
     system_manager->destroy_entity(entity);
 }
+

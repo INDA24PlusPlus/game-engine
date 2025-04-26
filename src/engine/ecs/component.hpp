@@ -4,8 +4,6 @@
 #include "types.h"
 #include "entity.hpp"
 
-const u32 MAX_COMPONENTS = 32;
-
 using ComponentID = u32;
 
 class ComponentBase {

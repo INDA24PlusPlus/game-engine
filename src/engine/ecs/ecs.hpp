@@ -4,7 +4,7 @@
 #include "types.h"
 #include "entity.hpp"
 #include "component.hpp"
-#include "system.hpp"
+#include "systemmanager.hpp"
 #include <cstdio>
 
 class ECS {
