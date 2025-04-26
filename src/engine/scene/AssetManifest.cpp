@@ -1,5 +1,7 @@
 #include "AssetManifest.h"
 
+#include <cstring>
+
 namespace engine {
 
 void AssetManifest::serialize(std::ofstream& out, u32& bytes_written) {

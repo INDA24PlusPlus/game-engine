@@ -65,7 +65,8 @@ static void parse_prefabs(AssetImporter& importer, AssetManifest& manifest,
             std::vector<f32> rotation = json_node["rotation"];
             std::vector<f32> scale = json_node["scale"];
 
-            node.name = json_node["name"];
+            std::string node_name = json_node["name"];
+            node.name = node_name;
             node.translation = glm::vec3(translation[0], translation[1], translation[2]);
             node.rotation = glm::quat(rotation[3], rotation[0], rotation[1], rotation[2]);
             node.scale = glm::vec3(scale[0], scale[1], scale[2]);
