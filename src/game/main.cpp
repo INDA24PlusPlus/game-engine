@@ -48,7 +48,7 @@ class RInput : public Resource<RInput> {
 class RRenderer : public Resource<RRenderer> {
     public:
         engine::Renderer m_renderer;
-        RRenderer() : m_renderer((engine::Renderer::LoadProc)glfwGetProcAddress) {
+        RRenderer(engine::Renderer renderer) : m_renderer(renderer) {
         }
 };
 
@@ -91,6 +91,7 @@ class SRenderer : public System<SRenderer> {
                 INFO("Drawing mesh {}", e);
                 auto mesh = ecs.get_component<CMesh>(e);
                 INFO("IS_VALID: {}", mesh.m_mesh.is_valid());
+                renderer->draw_mesh(scene->m_scene, mesh.m_mesh);
                 a++;
             }
             INFO("Drawn {} meshes", a);
@@ -102,12 +103,12 @@ class SRenderer : public System<SRenderer> {
 class SMoveCamera : public System<SMoveCamera> {
     public:
         void update(ECS& ecs) {
-            auto input = &ecs.get_resource<RInput>()->m_input;
+            auto input = ecs.get_resource<RInput>()->m_input;
             auto scene = ecs.get_resource<RScene>();
             auto camera = &scene->m_camera;
             auto window = scene->m_window;
 
-            if (input->is_key_just_pressed(GLFW_KEY_ESCAPE)) {
+            if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
                 bool mouse_locked = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
                 glfwSetInputMode(window, GLFW_CURSOR,
                                  mouse_locked ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
@@ -115,14 +116,14 @@ class SMoveCamera : public System<SMoveCamera> {
 
             glm::vec3 direction(0.0f);
 
-            if (input->is_key_pressed(GLFW_KEY_W)) direction.z += 1.0f;
-            if (input->is_key_pressed(GLFW_KEY_S)) direction.z -= 1.0f;
-            if (input->is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
-            if (input->is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
+            if (input.is_key_pressed(GLFW_KEY_W)) direction.z += 1.0f;
+            if (input.is_key_pressed(GLFW_KEY_S)) direction.z -= 1.0f;
+            if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
+            if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
             INFO("Direction: {}", direction.x);
 
             if (glm::length(direction) > 0) {
-                if (input->is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+                if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
                     camera->move(glm::normalize(direction), 0.016f);
                 } else {
                     auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
@@ -161,9 +162,10 @@ class SMoveCamera : public System<SMoveCamera> {
             // mouse input
 
             if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
-                glm::vec2 mouse_delta = input->get_mouse_position_delta();
+                glm::vec2 mouse_delta = input.get_mouse_position_delta();
                 camera->rotate(-mouse_delta.x * 0.001f, -mouse_delta.y * 0.001f);
             }
+            input.update();
         }
 };
 
@@ -243,15 +245,12 @@ void main_necs(void) {
     ecs.register_component<CMesh>();
     ecs.register_component<CVelocity>();
 
-    ecs.register_resource(new RInput(window));
-    ecs.register_resource(new RRenderer());
-    ecs.register_resource(new RScene(state.scene, state.camera, window));
-    ecs.register_system<SRenderer>();
-    ecs.register_system<SMoveCamera>();
     Signature renderer_signature = 0;
     renderer_signature = set_signature(renderer_signature, CMesh::get_id());
     ecs.set_system_signature<SRenderer>(renderer_signature);
 
+    Entity e1 = ecs.create_entity();
+    ecs.add_component<CMesh>(e1, CMesh(helmet_mesh));
     Entity e2 = ecs.create_entity();
     ecs.add_component<CMesh>(e2, CMesh(sponza_mesh));
 
@@ -405,7 +404,7 @@ void main_ecs(void) {
     ecs.register_component<CVelocity>();
 
     ecs.register_resource(new RInput(window));
-    ecs.register_resource(new RRenderer());
+    ecs.register_resource(new RRenderer(renderer));
     ecs.register_resource(new RScene(scene, camera, window));
     auto render_system = ecs.register_system<SRenderer>();
     auto move_camera_system = ecs.register_system<SMoveCamera>();

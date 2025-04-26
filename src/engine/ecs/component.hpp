@@ -41,9 +41,9 @@ class IComponentArray {
 template <typename T>
 class ComponentArray {
     public:
-        ComponentArray() {
-            for (Entity entity = 0; entity < MAX_ENTITIES; entity++) {
-                data[entity] = T();
+        ComponentArray(): data() {
+            for (u32 i = 0; i < MAX_ENTITIES; i++) {
+                data[i] = T();
             }
         }
 
