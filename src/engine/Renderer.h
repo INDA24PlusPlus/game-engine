@@ -2,37 +2,39 @@
 #define _RENDERER_H
 
 #include <glm/glm.hpp>
-#include <vector>
 
 #include "Camera.h"
-#include "Scene.h"
 #include "core.h"
 #include "graphics/Image.h"
 #include "graphics/Pipeline.h"
 #include "graphics/Sampler.h"
+#include "scene/Node.h"
+#include "scene/Scene.h"
 
 namespace engine {
 
 class Renderer {
-  public:
+   public:
+    friend class Scene;
     typedef void *(*LoadProc)(const char *name);
 
     void init(LoadProc load_proc);
-    void make_resources_for_scene(const Scene &scene);
+    void make_resources_for_scene(const loader::AssetFileData &scene);
 
     // Will go away.
-    void set_texture_filtering_level(f32 level);
+    void set_texture_filtering_level(Scene& scene, f32 level);
     f32 get_max_texture_filtering_level() const;
 
     void clear();
     void begin_pass(const Scene &scene, const Camera &camera, u32 width, u32 height);
     void end_pass();
-    void draw_mesh(MeshHandle mesh, const glm::mat4 &transform = glm::mat4(1.0f));
+    void draw_mesh(u32 mesh_handle, const glm::mat4 &transform);
+    void draw_hierarchy(const Scene &scene, const NodeHierarchy &hierarchy);
 
     // Temp
     void update_light_positions(u32 index, glm::vec4 pos);
 
-  private:
+   private:
     struct GeneratedImages {
         Image env_map;
         Image brdf_lut;
@@ -49,23 +51,20 @@ class Renderer {
     void generate_brdf_lut(Image &brdf_lut);
     void generate_cubemap_from_equirectangular_new(const Image &eq_map,
                                                    const Sampler &eq_map_sampler,
-                                                   ImageInfo::Format cubemap_format,
-                                                   Image &result);
+                                                   ImageInfo::Format cubemap_format, Image &result);
 
     enum class PrefilterDistribution : u32 {
         lambertian = 0,
         GGX = 1,
     };
 
-
-    void prefilter_cubemap(const Image& env_map, const Image& result, u32 sample_count, PrefilterDistribution dist);
-    void prefilter_env_map(const Image& env_map, Image& result);
+    void prefilter_cubemap(const Image &env_map, const Image &result, u32 sample_count,
+                           PrefilterDistribution dist);
+    void prefilter_env_map(const Image &env_map, Image &result);
     void draw_skybox();
     void create_skybox();
-
-    // TODO: Move this into scene
-    std::vector<u32> m_texture_handles;
-    std::vector<u32> m_sampler_handles;
+    void draw_node(const NodeHierarchy &hierarchy, u32 node_index,
+                   const glm::mat4 &parent_transform);
 
     bool m_scene_loaded;
     bool m_pass_in_progress;
@@ -112,6 +111,6 @@ class Renderer {
     Pipeline m_pbr_pipeline;
 };
 
-} // namespace engine
+}  // namespace engine
 
 #endif

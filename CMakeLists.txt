@@ -13,8 +13,11 @@ set(SOURCE_FILES
     src/engine/utils/logging.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
-    src/engine/Scene.cpp
+    src/engine/AssetLoader.cpp
     src/engine/Input.cpp
+    src/engine/scene/Scene.cpp
+    src/engine/scene/Node.cpp
+    src/engine/scene/AssetManifest.cpp
     src/engine/graphics/Pipeline.cpp
     src/engine/graphics/Image.cpp
     src/engine/graphics/Sampler.cpp
@@ -32,7 +35,7 @@ FetchContent_Declare(
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.91.9b
+    GIT_TAG v1.91.9b-docking
 )
 
 FetchContent_Declare(
@@ -48,6 +51,15 @@ set_target_properties(game_engine PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
 )
+
+option(ENABLE_EDITOR "Enable editor features" ON)
+
+if(ENABLE_EDITOR)
+    target_compile_definitions(game_engine PRIVATE ENABLE_EDITOR=1)
+    target_include_directories(game_engine PRIVATE vendor/nlohmann)
+endif()
+
+
 target_include_directories(game_engine PRIVATE src)
 
 # GLM

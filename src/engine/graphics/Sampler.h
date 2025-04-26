@@ -4,6 +4,10 @@
 
 namespace engine {
 
+namespace loader {
+struct SamplerInfo;
+}
+
 class Sampler {
   public:
     enum class Filter {
@@ -22,6 +26,7 @@ class Sampler {
         mirrored_repeat,
     };
 
+    void init(loader::SamplerInfo info, f32 max_anisotropy); 
     void init(Filter mag_filter,
               Filter min_filter,
               MipmapMode mipmap_mode,

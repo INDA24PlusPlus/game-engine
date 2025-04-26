@@ -7,9 +7,10 @@
 #include <string>
 #include <unordered_map>
 
-#include "../../../src/engine/Scene.h"
+#include "../../../src/engine/AssetLoader.h"
 
 
+using namespace engine::loader;
 using namespace engine;
 
 struct AssetImporter {
@@ -28,24 +29,19 @@ struct AssetImporter {
     // Maps the GLTF files node indices to our own.
     std::unordered_map<u32, u32> m_node_map;
 
-    // Mesh name -> mesh index
-    std::unordered_map<std::string, u32> m_mesh_names;
-
     std::vector<u8> m_indices;
     std::vector<Vertex> m_vertices;
     std::vector<Mesh> m_meshes;
     std::vector<Primitive> m_primitives;
 
-    std::vector<Node> m_nodes;
-    std::vector<u32> m_root_nodes;
+    std::vector<ImmutableNode> m_prefabs_nodes;
+    std::vector<u32> m_root_prefab_nodes;
 
     std::vector<SamplerInfo> m_samplers;
     std::vector<ImageInfo> m_images;
     std::vector<TextureInfo> m_textures;
     std::vector<Material> m_materials;
     std::vector<u8> m_image_data;
-
-    AssetHeader header();
 
     void load_asset(std::string path);
     void load_indices(const tinygltf::Model& model, const tinygltf::Accessor accessor);
@@ -65,6 +61,7 @@ struct AssetImporter {
     ktxTexture2* write_to_texture_cache(const tinygltf::Image& image, bool is_srgb, bool is_normal_map, u32 mip_levels,
                                         std::string_view path);
     std::string get_image_cache_path(std::span<const u8> image_data, const ImageInfo& image);
+    void load_prefab(std::span<const ImmutableNode> nodes);
 };
 
 #endif

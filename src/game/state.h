@@ -1,13 +1,18 @@
 #include <array>
+
 #include "engine/Camera.h"
-#include "engine/Scene.h"
 #include "engine/Renderer.h"
+#include "engine/scene/Node.h"
+#include "engine/scene/Scene.h"
 #include "game/player.h"
+
 
 struct State {
     engine::Scene scene;
     engine::Camera camera;
     engine::Renderer renderer;
+    engine::NodeHierarchy hierarchy;
+
     u32 fb_width;
     u32 fb_height;
     bool mouse_locked;
@@ -22,5 +27,5 @@ struct State {
     f32 sensitivity;
 
     Player player;
-    Player enemy; // well maybe the struct should be something else
+    Player enemy;  // well maybe the struct should be something else
 };

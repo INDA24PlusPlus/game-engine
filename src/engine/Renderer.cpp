@@ -11,10 +11,12 @@
 #include <sstream>
 #include <string>
 
-#include "Scene.h"
+#include "AssetLoader.h"
+#include "glm/fwd.hpp"
 #include "graphics/Image.h"
 #include "graphics/Pipeline.h"
 #include "graphics/Sampler.h"
+#include "scene/Node.h"
 #include "utils/logging.h"
 
 // Thins we can do to improve performance:
@@ -27,13 +29,8 @@
 
 namespace engine {
 
-static void APIENTRY glDebugOutput(GLenum source,
-                                   GLenum type,
-                                   unsigned int id,
-                                   GLenum severity,
-                                   GLsizei length,
-                                   const char *message,
-                                   const void *userParam) {
+static void APIENTRY glDebugOutput(GLenum source, GLenum type, unsigned int id, GLenum severity,
+                                   GLsizei length, const char *message, const void *userParam) {
     (void)source;
     (void)id;
     (void)severity;
@@ -67,12 +64,9 @@ void Renderer::init(LoadProc load_proc) {
 
     glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &m_max_texture_filtering);
 
-    m_default_sampler.init(Sampler::Filter::linear,
-                           Sampler::Filter::linear,
-                           Sampler::MipmapMode::linear,
-                           Sampler::AddressMode::clamp_to_edge,
-                           Sampler::AddressMode::clamp_to_edge,
-                           Sampler::AddressMode::clamp_to_edge,
+    m_default_sampler.init(Sampler::Filter::linear, Sampler::Filter::linear,
+                           Sampler::MipmapMode::linear, Sampler::AddressMode::clamp_to_edge,
+                           Sampler::AddressMode::clamp_to_edge, Sampler::AddressMode::clamp_to_edge,
                            m_max_texture_filtering);
 
     create_ubos();
@@ -81,17 +75,16 @@ void Renderer::init(LoadProc load_proc) {
     INFO("Initialized renderer");
 }
 
-f32 Renderer::get_max_texture_filtering_level() const {
-    return m_max_texture_filtering;
-}
+f32 Renderer::get_max_texture_filtering_level() const { return m_max_texture_filtering; }
 
-void Renderer::set_texture_filtering_level(f32 level) {
-    for (size_t i = 0; i < m_sampler_handles.size(); ++i) {
-        glSamplerParameterf(m_sampler_handles[i], GL_TEXTURE_MAX_ANISOTROPY, level);
+// FIXME: Hack
+void Renderer::set_texture_filtering_level(Scene& scene, f32 level) {
+    for (size_t i = 0; i < scene.m_samplers.size(); ++i) {
+        glSamplerParameterf(scene.m_samplers[i].m_handle, GL_TEXTURE_MAX_ANISOTROPY, level);
     }
 }
 
-void Renderer::make_resources_for_scene(const Scene &scene) {
+void Renderer::make_resources_for_scene(const loader::AssetFileData &data) {
     INFO("Creating renderer state for scene data.");
     assert(!m_scene_loaded);
     m_pbr_pipeline.init();
@@ -111,9 +104,9 @@ void Renderer::make_resources_for_scene(const Scene &scene) {
                                   .offset = offsetof(Vertex, uv)},
     };
 
-    std::span vertex_data((u8 *)scene.m_vertices.data(), scene.m_vertices.size() * sizeof(Vertex));
+    std::span vertex_data((u8 *)data.vertices.data(), data.vertices.size() * sizeof(Vertex));
     m_pbr_pipeline.add_vertex_buffer(attribs, sizeof(Vertex), vertex_data);
-    m_pbr_pipeline.add_index_buffer(scene.m_indices);
+    m_pbr_pipeline.add_index_buffer(data.indices);
 
     std::array<u32, 1> specialization_constants = {m_offline_images.env_map.m_info.num_levels};
     m_pbr_pipeline.add_vertex_shader("shaders/SPIRV/basic.vert.spv", {});
@@ -122,14 +115,11 @@ void Renderer::make_resources_for_scene(const Scene &scene) {
     assert(m_pbr_pipeline.m_fshader && "Failed to load PBR fragment shader");
     m_pbr_pipeline.compile();
 
-    create_textures(scene);
     m_scene_loaded = true;
     INFO("Created renderer state for scene object.");
 }
 
-void Renderer::clear() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
+void Renderer::clear() { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }
 
 void Renderer::begin_pass(const Scene &scene, const Camera &camera, u32 width, u32 height) {
     assert(!m_pass_in_progress);
@@ -169,16 +159,12 @@ void Renderer::end_pass() {
     m_pass_in_progress = false;
 }
 
-void Renderer::draw_mesh(MeshHandle mesh_handle, const glm::mat4 &transform) {
+void Renderer::draw_mesh(u32 mesh_handle, const glm::mat4 &transform) {
     const auto &scene = *m_curr_pass.scene;
 
     // FIXME: Do the actual draw calls in end_pass
-    const auto &mesh = scene.m_meshes[mesh_handle.get_value()];
-    const auto &node_transform = transform * scene.m_global_node_transforms[mesh.node_index];
-    glNamedBufferSubData(m_ubo_matrices_handle,
-                         0,
-                         sizeof(glm::mat4),
-                         glm::value_ptr(node_transform));
+    const auto &mesh = scene.m_meshes[mesh_handle];
+    glNamedBufferSubData(m_ubo_matrices_handle, 0, sizeof(glm::mat4), glm::value_ptr(transform));
 
     for (size_t i = 0; i < mesh.num_primitives; ++i) {
         const auto &prim = scene.m_primitives[mesh.primitive_index + i];
@@ -186,38 +172,37 @@ void Renderer::draw_mesh(MeshHandle mesh_handle, const glm::mat4 &transform) {
 
         if ((u32)material.flags & (u32)Material::Flags::has_base_color_texture) {
             const auto &base_color_texture = scene.m_textures[material.base_color_texture];
-            glBindSampler(0, m_sampler_handles[base_color_texture.sampler_index]);
-            glBindTextureUnit(0, m_texture_handles[base_color_texture.image_index]);
+            glBindSampler(0, scene.m_samplers[base_color_texture.sampler_index].m_handle);
+            glBindTextureUnit(0, scene.m_images[base_color_texture.image_index].m_handle);
         }
         if ((u32)material.flags & (u32)Material::Flags::has_metallic_roughness_texture) {
             const auto &metallic_roughness_texture =
                 scene.m_textures[material.metallic_roughness_texture];
-            glBindSampler(1, m_sampler_handles[metallic_roughness_texture.sampler_index]);
-            glBindTextureUnit(1, m_texture_handles[metallic_roughness_texture.image_index]);
+            glBindSampler(1, scene.m_samplers[metallic_roughness_texture.sampler_index].m_handle);
+            glBindTextureUnit(1, scene.m_images[metallic_roughness_texture.image_index].m_handle);
         }
         if ((u32)material.flags & (u32)Material::Flags::has_normal_map) {
             const auto &normal_map = scene.m_textures[material.normal_map];
-            glBindSampler(2, m_sampler_handles[normal_map.sampler_index]);
-            glBindTextureUnit(2, m_texture_handles[normal_map.image_index]);
+            glBindSampler(2, scene.m_samplers[normal_map.sampler_index].m_handle);
+            glBindTextureUnit(2, scene.m_images[normal_map.image_index].m_handle);
         }
         if ((u32)material.flags & (u32)Material::Flags::has_occlusion_map) {
             const auto &occlusion_map = scene.m_textures[material.occlusion_map];
-            glBindSampler(3, m_sampler_handles[occlusion_map.sampler_index]);
-            glBindTextureUnit(3, m_texture_handles[occlusion_map.image_index]);
+            glBindSampler(3, scene.m_samplers[occlusion_map.sampler_index].m_handle);
+            glBindTextureUnit(3, scene.m_images[occlusion_map.image_index].m_handle);
         }
         if ((u32)material.flags & (u32)Material::Flags::has_emission_map) {
             const auto &emission_map = scene.m_textures[material.emission_map];
-            glBindSampler(4, m_sampler_handles[emission_map.sampler_index]);
-            glBindTextureUnit(4, m_texture_handles[emission_map.image_index]);
+            glBindSampler(4, scene.m_samplers[emission_map.sampler_index].m_handle);
+            glBindTextureUnit(4, scene.m_images[emission_map.image_index].m_handle);
         }
 
         // set uniforms for the material.
         GPUMaterial gpu_material = {
             .base_color_factor = material.base_color_factor,
-            .metallic_roughness_normal_occlusion = glm::vec4(material.metallic_factor,
-                                                             material.roughness_factor,
-                                                             material.normal_map_scale,
-                                                             material.occlusion_strength),
+            .metallic_roughness_normal_occlusion =
+                glm::vec4(material.metallic_factor, material.roughness_factor,
+                          material.normal_map_scale, material.occlusion_strength),
             .camera_pos = m_curr_pass.camera_pos,
             .flags = (u32)material.flags,
             .emissive_factor = material.emission_factor,
@@ -227,18 +212,13 @@ void Renderer::draw_mesh(MeshHandle mesh_handle, const glm::mat4 &transform) {
         auto num_indices = prim.num_indices();
         u64 byte_offset = prim.indices_start;
 
-        glDrawElementsBaseVertex(GL_TRIANGLES,
-                                 num_indices,
-                                 prim.index_type,
-                                 (void *)byte_offset,
+        glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type, (void *)byte_offset,
                                  prim.base_vertex);
     }
 }
 
 void Renderer::update_light_positions(u32 index, glm::vec4 pos) {
-    glNamedBufferSubData(m_ubo_light_positions,
-                         sizeof(glm::vec4) * index,
-                         sizeof(glm::vec4),
+    glNamedBufferSubData(m_ubo_light_positions, sizeof(glm::vec4) * index, sizeof(glm::vec4),
                          glm::value_ptr(pos));
 }
 
@@ -262,28 +242,6 @@ void Renderer::create_ubos() {
         u32 size = sizeof(glm::vec4) * 5;
         glNamedBufferData(m_ubo_light_positions, size, nullptr, GL_DYNAMIC_DRAW);
         glBindBufferBase(GL_UNIFORM_BUFFER, 2, m_ubo_light_positions);
-    }
-}
-
-void Renderer::create_textures(const Scene &scene) {
-    m_texture_handles.resize(scene.m_images.size());
-    for (size_t i = 0; i < scene.m_images.size(); ++i) {
-        const auto &loaded_image = scene.m_images[i];
-
-        Image image;
-        image.init(loaded_image);
-        image.upload(&scene.m_image_data[loaded_image.image_data_index]);
-        m_texture_handles[i] = image.m_handle;
-    }
-
-    m_sampler_handles.resize(scene.m_samplers.size());
-    glCreateSamplers(m_sampler_handles.size(), m_sampler_handles.data());
-    for (size_t i = 0; i < m_sampler_handles.size(); ++i) {
-        const auto &sampler = scene.m_samplers[i];
-        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_MAG_FILTER, sampler.mag_filter);
-        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_MIN_FILTER, sampler.min_filter);
-        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_WRAP_S, sampler.wrap_s);
-        glSamplerParameteri(m_sampler_handles[i], GL_TEXTURE_WRAP_T, sampler.wrap_t);
     }
 }
 
@@ -323,6 +281,28 @@ void Renderer::draw_skybox() {
 
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glDepthFunc(GL_LESS);
+}
+
+void Renderer::draw_node(const NodeHierarchy &hierarchy, u32 node_index,
+                         const glm::mat4 &parent_transform) {
+    const auto &node = hierarchy.m_nodes[node_index];
+
+    auto T = glm::translate(glm::mat4(1.0f), node.translation);
+    auto R = glm::mat4_cast(node.rotation);
+    auto S = glm::scale(glm::mat4(1.0f), node.scale);
+    auto node_transform = T * R * S;
+    auto global_transform = parent_transform * node_transform;
+    if (node.kind == Node::Kind::mesh) {
+        draw_mesh(node.mesh_index, global_transform);
+    }
+
+    for (size_t i = 0; i < node.children.size(); i++) {
+        draw_node(hierarchy, node.children[i], global_transform);
+    }
+}
+
+void Renderer::draw_hierarchy(const Scene &scene, const NodeHierarchy &hierarchy) {
+    draw_node(hierarchy, 0, glm::mat4(1.0f));
 }
 
 // clang-format off
@@ -375,13 +355,10 @@ f32 skybox_vertices[] = {
 void Renderer::create_skybox() {
     m_skybox.pipeline.init();
 
-    std::array<VertexAttributeDescriptor, 1> attribs = {
-        VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
-                                  .count = 3,
-                                  .offset = 0}};
+    std::array<VertexAttributeDescriptor, 1> attribs = {VertexAttributeDescriptor{
+        .type = VertexAttributeDescriptor::Type::f32, .count = 3, .offset = 0}};
 
-    m_skybox.pipeline.add_vertex_buffer(attribs,
-                                        3 * sizeof(f32),
+    m_skybox.pipeline.add_vertex_buffer(attribs, 3 * sizeof(f32),
                                         std::span((u8 *)skybox_vertices, 36 * 3 * sizeof(f32)));
     m_skybox.pipeline.add_vertex_shader("shaders/SPIRV/skybox.vert.spv");
     m_skybox.pipeline.add_fragment_shader("shaders/SPIRV/skybox.frag.spv");
@@ -390,8 +367,8 @@ void Renderer::create_skybox() {
 }
 
 template <typename Func>
-static void
-    render_to_cubemap_faces(Pipeline &pipeline, u32 face_size, u32 cubemap, u32 level, Func f) {
+static void render_to_cubemap_faces(Pipeline &pipeline, u32 face_size, u32 cubemap, u32 level,
+                                    Func f) {
     u32 capture_fbo;
     glCreateFramebuffers(1, &capture_fbo);
 
@@ -400,24 +377,19 @@ static void
     glNamedRenderbufferStorage(capture_rbo, GL_DEPTH_COMPONENT24, face_size, face_size);
     glNamedFramebufferRenderbuffer(capture_fbo, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, capture_rbo);
 
-    glm::mat4 capture_views[] = {glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(1.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, -1.0f, 0.0f)),
-                                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(-1.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, -1.0f, 0.0f)),
-                                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, 1.0f, 0.0f),
-                                             glm::vec3(0.0f, 0.0f, 1.0f)),
-                                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, -1.0f, 0.0f),
-                                             glm::vec3(0.0f, 0.0f, -1.0f)),
-                                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, 0.0f, 1.0f),
-                                             glm::vec3(0.0f, -1.0f, 0.0f)),
-                                 glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
-                                             glm::vec3(0.0f, 0.0f, -1.0f),
-                                             glm::vec3(0.0f, -1.0f, 0.0f))};
+    glm::mat4 capture_views[] = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f),
+                    glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f),
+                    glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f),
+                    glm::vec3(0.0f, 0.0f, 1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f),
+                    glm::vec3(0.0f, 0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f),
+                    glm::vec3(0.0f, -1.0f, 0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f),
+                    glm::vec3(0.0f, -1.0f, 0.0f))};
 
     glViewport(0, 0, face_size, face_size);
     glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
@@ -440,12 +412,7 @@ void Renderer::generate_offline_content() {
 
     stbi_set_flip_vertically_on_load(true);
     int width, height, num_comps;
-    f32 *data = stbi_loadf(
-        "assets/monkstown_castle_4k.hdr",
-        &width,
-        &height,
-        &num_comps,
-        0);
+    f32 *data = stbi_loadf("assets/monkstown_castle_4k.hdr", &width, &height, &num_comps, 0);
     assert(num_comps == 3);
 
     if (!data) {
@@ -463,9 +430,7 @@ void Renderer::generate_offline_content() {
 
     eq_map.upload((u8 *)data);
     stbi_image_free(data);
-    generate_cubemap_from_equirectangular_new(eq_map,
-                                              m_default_sampler,
-                                              ImageInfo::Format::RGB32F,
+    generate_cubemap_from_equirectangular_new(eq_map, m_default_sampler, ImageInfo::Format::RGB32F,
                                               m_offline_images.env_map);
     m_offline_images.irradiance_map.init({
         .format = ImageInfo::Format::RGBA32F,
@@ -476,9 +441,7 @@ void Renderer::generate_offline_content() {
         .is_cubemap = true,
     });
 
-    prefilter_cubemap(m_offline_images.env_map,
-                      m_offline_images.irradiance_map,
-                      2024,
+    prefilter_cubemap(m_offline_images.env_map, m_offline_images.irradiance_map, 2024,
                       PrefilterDistribution::lambertian);
 
     m_offline_images.prefiltered_cubemap.init({
@@ -489,9 +452,7 @@ void Renderer::generate_offline_content() {
         .num_faces = 6,
         .is_cubemap = true,
     });
-    prefilter_cubemap(m_offline_images.env_map,
-                      m_offline_images.prefiltered_cubemap,
-                      1024,
+    prefilter_cubemap(m_offline_images.env_map, m_offline_images.prefiltered_cubemap, 1024,
                       PrefilterDistribution::GGX);
 }
 
@@ -524,12 +485,9 @@ void Renderer::generate_cubemap_from_equirectangular_new(const Image &eq_map,
     Pipeline pipeline;
     pipeline.init();
 
-    std::array<VertexAttributeDescriptor, 1> attribs = {
-        VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
-                                  .count = 3,
-                                  .offset = 0}};
-    pipeline.add_vertex_buffer(attribs,
-                               3 * sizeof(f32),
+    std::array<VertexAttributeDescriptor, 1> attribs = {VertexAttributeDescriptor{
+        .type = VertexAttributeDescriptor::Type::f32, .count = 3, .offset = 0}};
+    pipeline.add_vertex_buffer(attribs, 3 * sizeof(f32),
                                std::span((u8 *)skybox_vertices, 36 * 3 * sizeof(f32)));
 
     pipeline.add_vertex_shader("shaders/SPIRV/cubemapgen.vert.spv");
@@ -558,16 +516,12 @@ void Renderer::generate_cubemap_from_equirectangular_new(const Image &eq_map,
 
     auto lambda = [this](u32 face_index, const glm::mat4 &curr_view) {
         (void)face_index;
-        glNamedBufferSubData(m_ubo_matrices_handle,
-                             sizeof(glm::mat4),
-                             sizeof(glm::mat4),
+        glNamedBufferSubData(m_ubo_matrices_handle, sizeof(glm::mat4), sizeof(glm::mat4),
                              glm::value_ptr(curr_view));
     };
 
     glm::mat4 capture_proj = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-    glNamedBufferSubData(m_ubo_matrices_handle,
-                         2 * sizeof(glm::mat4),
-                         sizeof(glm::mat4),
+    glNamedBufferSubData(m_ubo_matrices_handle, 2 * sizeof(glm::mat4), sizeof(glm::mat4),
                          glm::value_ptr(capture_proj));
 
     glBindSampler(0, eq_map_sampler.m_handle);
@@ -579,19 +533,14 @@ void Renderer::generate_cubemap_from_equirectangular_new(const Image &eq_map,
     pipeline.deinit();
 }
 
-void Renderer::prefilter_cubemap(const Image &env_map,
-                                 const Image &result,
-                                 u32 sample_count,
+void Renderer::prefilter_cubemap(const Image &env_map, const Image &result, u32 sample_count,
                                  PrefilterDistribution dist) {
     Pipeline pipeline;
     pipeline.init();
 
-    std::array<VertexAttributeDescriptor, 1> attribs = {
-        VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
-                                  .count = 3,
-                                  .offset = 0}};
-    pipeline.add_vertex_buffer(attribs,
-                               3 * sizeof(f32),
+    std::array<VertexAttributeDescriptor, 1> attribs = {VertexAttributeDescriptor{
+        .type = VertexAttributeDescriptor::Type::f32, .count = 3, .offset = 0}};
+    pipeline.add_vertex_buffer(attribs, 3 * sizeof(f32),
                                std::span((u8 *)skybox_vertices, 36 * 3 * sizeof(f32)));
 
     pipeline.add_vertex_shader_src("shaders/offline/prefilter_env_map.vert.glsl");
@@ -604,7 +553,6 @@ void Renderer::prefilter_cubemap(const Image &env_map,
     glBindTextureUnit(0, env_map.m_handle);
 
     for (size_t mip = 0; mip < result.m_info.num_levels; ++mip) {
-
         // uniform uint sample_count
         glUniform1ui(0, sample_count);
 
@@ -633,4 +581,4 @@ void Renderer::prefilter_cubemap(const Image &env_map,
     pipeline.deinit();
 }
 
-} // namespace engine
+}  // namespace engine

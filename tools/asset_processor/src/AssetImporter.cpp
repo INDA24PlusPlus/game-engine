@@ -15,7 +15,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
-#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -26,7 +26,7 @@
 
 constexpr bool verbose_accessor_logging = false;
 
-inline static void update_fnv1a_hash(u64* hash, u8 byte) {
+inline static void update_fnv1a_hash(u64 *hash, u8 byte) {
     const u64 fnv_prime = 1099511628211ull;
     *hash ^= byte;
     *hash *= fnv_prime;
@@ -232,28 +232,9 @@ AssetImporter::AssetImporter(std::string exe_path) {
     INFO("Cache dir is {}", m_cache_dir);
 }
 
-AssetHeader AssetImporter::header() {
-    constexpr u32 curr_header_version = 1;
-
-    AssetHeader header;
-    header.version = curr_header_version;
-    header.num_indices = m_indices.size();
-    header.num_vertices = m_vertices.size();
-    header.num_meshes = m_meshes.size();
-    header.num_primitives = m_primitives.size();
-    header.num_nodes = m_nodes.size();
-    header.num_root_nodes = m_root_nodes.size();
-    header.num_samplers = m_samplers.size();
-    header.num_images = m_images.size();
-    header.num_textures = m_textures.size();
-    header.num_materials = m_materials.size();
-    header.num_image_bytes = m_image_data.size();
-    return header;
-}
-
 void AssetImporter::load_asset(std::string path) {
     INFO("Loading {}", path);
-    m_base_node = m_nodes.size();
+    // m_base_node = m_nodes.size();
     m_base_mesh = m_meshes.size();
     m_base_texture = m_textures.size();
     m_base_image = m_images.size();
@@ -279,7 +260,7 @@ void AssetImporter::load_asset(std::string path) {
         return;
     }
     load_meshes(model);
-    load_nodes(model);
+    // load_nodes(model);
     load_materials(model);
     load_textures(model);
 }
@@ -294,12 +275,6 @@ void AssetImporter::load_meshes(const tinygltf::Model &model) {
             exit(1);
         }
 
-        if (m_mesh_names.find(mesh.name) != m_mesh_names.end()) {
-            ERROR("Mesh name {} is already used.", mesh.name);
-            exit(1);
-        }
-
-        m_mesh_names[mesh.name] = m_meshes.size();
         u32 prim_index = m_primitives.size();
 
         for (const auto &prim : mesh.primitives) {
@@ -388,31 +363,31 @@ void AssetImporter::load_vertices(const tinygltf::Model &model, const tinygltf::
     }
 }
 
-void AssetImporter::load_nodes(const tinygltf::Model &model) {
-    if (model.scenes.size() == 0) {
-        ERROR("glTF model has no scenes!");
-        exit(1);
-    }
-    if (model.defaultScene == -1) {
-        ERROR("glTF model has no default scene");
-        exit(1);
-    }
-
-    const auto &scene = model.scenes[model.defaultScene];
-    for (size_t i = 0; i < scene.nodes.size(); ++i) {
-        u32 our_node_index = m_nodes.size();
-        m_nodes.resize(m_nodes.size() + 1);
-        load_node(model, scene.nodes[i], our_node_index);
-        m_root_nodes.push_back(our_node_index);
-    }
-
-    for (size_t i = 0; i < m_mesh_names.size(); ++i) {
-        if (m_meshes[i].node_index == UINT32_MAX) {
-            ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
-            exit(1);
-        }
-    }
-}
+//void AssetImporter::load_nodes(const tinygltf::Model &model) {
+//    if (model.scenes.size() == 0) {
+//        ERROR("glTF model has no scenes!");
+//        exit(1);
+//    }
+//    if (model.defaultScene == -1) {
+//        ERROR("glTF model has no default scene");
+//        exit(1);
+//    }
+//
+//    const auto &scene = model.scenes[model.defaultScene];
+//    for (size_t i = 0; i < scene.nodes.size(); ++i) {
+//        u32 our_node_index = m_nodes.size();
+//        m_nodes.resize(m_nodes.size() + 1);
+//        load_node(model, scene.nodes[i], our_node_index);
+//        m_root_nodes.push_back(our_node_index);
+//    }
+//
+//    for (size_t i = 0; i < m_meshes.size(); ++i) {
+//        if (m_meshes[i].node_index == UINT32_MAX) {
+//            ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
+//            exit(1);
+//        }
+//    }
+//}
 
 glm::mat4 to_glm(const std::vector<double> &matrix) {
     return glm::mat4(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
@@ -420,61 +395,61 @@ glm::mat4 to_glm(const std::vector<double> &matrix) {
                      matrix[13], matrix[14], matrix[15]);
 }
 
-void AssetImporter::load_node(const tinygltf::Model &model, u32 gltf_node_index,
-                              u32 our_node_index) {
-    const auto &gltf_node = model.nodes[gltf_node_index];
-    INFO("--------- Loading glTF node {} ----------", gltf_node_index);
-    INFO("Node has {} children", gltf_node.children.size());
-    if (m_node_map.find(m_base_node + gltf_node_index) != m_node_map.end()) {
-        ERROR(
-            "An attmept was made parse the same gltf node twice. Either the model is malformed or "
-            "there is a bug in our loader!");
-        exit(1);
-    }
-    m_node_map[m_base_node + gltf_node_index] = our_node_index;
-
-    auto &our_node = m_nodes[our_node_index];
-    our_node = {
-        .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-        .child_index = (u32)m_nodes.size(),
-        .scale = glm::vec3(1.0f),
-        .num_children = (u32)gltf_node.children.size(),
-    };
-
-    if (gltf_node.mesh != -1) {
-        m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
-        INFO("Node references mesh {}", gltf_node.mesh);
-    }
-
-    if (gltf_node.scale.size() != 0) {
-        our_node.scale = glm::vec3(gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2]);
-    }
-    if (gltf_node.rotation.size() != 0) {
-        our_node.rotation = glm::quat(gltf_node.rotation[3], gltf_node.rotation[0],
-                                      gltf_node.rotation[1], gltf_node.rotation[2]);
-    }
-    if (gltf_node.translation.size() != 0) {
-        our_node.translation =
-            glm::vec3(gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2]);
-    }
-
-    if (gltf_node.matrix.size()) {
-        auto mat = to_glm(gltf_node.matrix);
-
-        glm::vec3 skew;
-        glm::vec4 perspective;
-        bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation,
-                                            our_node.translation, skew, perspective);
-        assert(did_decompose);
-    }
-
-    // After we resize we can no longer use the alias 'our_node'
-    m_nodes.resize(m_nodes.size() + our_node.num_children);
-
-    for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
-        load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
-    }
-}
+//void AssetImporter::load_node(const tinygltf::Model &model, u32 gltf_node_index,
+//                              u32 our_node_index) {
+//    const auto &gltf_node = model.nodes[gltf_node_index];
+//    INFO("--------- Loading glTF node {} ----------", gltf_node_index);
+//    INFO("Node has {} children", gltf_node.children.size());
+//    if (m_node_map.find(m_base_node + gltf_node_index) != m_node_map.end()) {
+//        ERROR(
+//            "An attmept was made parse the same gltf node twice. Either the model is malformed or "
+//            "there is a bug in our loader!");
+//        exit(1);
+//    }
+//    m_node_map[m_base_node + gltf_node_index] = our_node_index;
+//
+//    auto &our_node = m_nodes[our_node_index];
+//    our_node = {
+//        .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+//        .child_index = (u32)m_nodes.size(),
+//        .scale = glm::vec3(1.0f),
+//        .num_children = (u32)gltf_node.children.size(),
+//    };
+//
+//    if (gltf_node.mesh != -1) {
+//        m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
+//        INFO("Node references mesh {}", gltf_node.mesh);
+//    }
+//
+//    if (gltf_node.scale.size() != 0) {
+//        our_node.scale = glm::vec3(gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2]);
+//    }
+//    if (gltf_node.rotation.size() != 0) {
+//        our_node.rotation = glm::quat(gltf_node.rotation[3], gltf_node.rotation[0],
+//                                      gltf_node.rotation[1], gltf_node.rotation[2]);
+//    }
+//    if (gltf_node.translation.size() != 0) {
+//        our_node.translation =
+//            glm::vec3(gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2]);
+//    }
+//
+//    if (gltf_node.matrix.size()) {
+//        auto mat = to_glm(gltf_node.matrix);
+//
+//        glm::vec3 skew;
+//        glm::vec4 perspective;
+//        bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation,
+//                                            our_node.translation, skew, perspective);
+//        assert(did_decompose);
+//    }
+//
+//    // After we resize we can no longer use the alias 'our_node'
+//    m_nodes.resize(m_nodes.size() + our_node.num_children);
+//
+//    for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
+//        load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
+//    }
+//}
 
 void AssetImporter::load_textures(const tinygltf::Model &model) {
     std::vector<bool> is_srgb;
@@ -515,18 +490,75 @@ void AssetImporter::determine_required_images(const tinygltf::Model &model,
 }
 
 void AssetImporter::load_samplers(const tinygltf::Model &model) {
-    constexpr u32 GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+    constexpr u32 GL_NEAREST = 0x2600;
     constexpr u32 GL_LINEAR = 0x2601;
+    constexpr u32 GL_NEAREST_MIPMAP_NEAREST = 0x2700;
+    constexpr u32 GL_LINEAR_MIPMAP_NEAREST = 0x2701;
+    constexpr u32 GL_NEAREST_MIPMAP_LINEAR = 0x2702;
+    constexpr u32 GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+    constexpr u32 GL_CLAMP_TO_EDGE = 0x812F;
+    constexpr u32 GL_MIRRORED_REPEAT = 0x8370;
+    constexpr u32 GL_REPEAT = 0x2901;
 
     for (size_t i = 0; i < model.samplers.size(); i++) {
         const auto &sampler = model.samplers[i];
         u32 min_filter = sampler.minFilter == -1 ? GL_LINEAR_MIPMAP_LINEAR : sampler.minFilter;
         u32 mag_filter = sampler.magFilter == -1 ? GL_LINEAR : sampler.magFilter;
+
+        auto sampler_filter = [&](u32 filter) {
+            switch (filter) {
+                case GL_NEAREST_MIPMAP_LINEAR:
+                case GL_NEAREST_MIPMAP_NEAREST:
+                case GL_NEAREST:
+                    return Sampler::Filter::nearest;
+
+                case GL_LINEAR_MIPMAP_LINEAR:
+                case GL_LINEAR_MIPMAP_NEAREST:
+                case GL_LINEAR:
+                    return Sampler::Filter::linear;
+                default:
+                    assert(0);
+            }
+            std::unreachable();
+        };
+        auto sampler_mipmap_mode = [&](u32 filter) {
+            switch (filter) {
+                case GL_LINEAR_MIPMAP_NEAREST:
+                case GL_NEAREST_MIPMAP_NEAREST:
+                    return Sampler::MipmapMode::nearest;
+
+                case GL_LINEAR_MIPMAP_LINEAR:
+                case GL_NEAREST_MIPMAP_LINEAR:
+                case GL_NEAREST:
+                case GL_LINEAR:
+                    return Sampler::MipmapMode::linear;
+                default:
+                    assert(0);
+            }
+            std::unreachable();
+        };
+
+        auto sampler_adress_mode = [&](u32 mode) {
+            switch (mode) {
+                case GL_REPEAT:
+                    return Sampler::AddressMode::repeat;
+                case GL_CLAMP_TO_EDGE:
+                    return Sampler::AddressMode::clamp_to_edge;
+                case GL_MIRRORED_REPEAT:
+                    return Sampler::AddressMode::mirrored_repeat;
+                default:
+                    assert(0);
+            }
+            std::unreachable();
+        };
+
         m_samplers.push_back({
-            .min_filter = min_filter,
-            .mag_filter = mag_filter,
-            .wrap_t = (u32)sampler.wrapT,
-            .wrap_s = (u32)sampler.wrapS,
+            .mag_filter = sampler_filter(mag_filter),
+            .min_filter = sampler_filter(min_filter),
+            .mipmap_mode = sampler_mipmap_mode(min_filter),
+            .address_mode_u = sampler_adress_mode(sampler.wrapS),
+            .address_mode_v = sampler_adress_mode(sampler.wrapT),
+            .address_mode_w = sampler_adress_mode(sampler.wrapT),
         });
     }
 }
@@ -656,9 +688,10 @@ ktxTexture2 *AssetImporter::write_to_texture_cache(const tinygltf::Image &image,
     return uncompressed;
 }
 
-std::string AssetImporter::get_image_cache_path(std::span<const u8> image_data, const ImageInfo& image) {
+std::string AssetImporter::get_image_cache_path(std::span<const u8> image_data,
+                                                const ImageInfo &image) {
     auto texture_hash = hash_fnv1a(image_data);
-    auto metadata = std::span((u8*)&image, sizeof(ImageInfo));
+    auto metadata = std::span((u8 *)&image, sizeof(ImageInfo));
     for (u8 byte : metadata) {
         update_fnv1a_hash(&texture_hash, byte);
     }
@@ -694,16 +727,14 @@ void AssetImporter::load_images(const tinygltf::Model &model, const std::vector<
         static_assert(std::is_standard_layout<ImageInfo>::value);
         std::memset(&our_image, 0, sizeof(ImageInfo));
 
-        our_image  = {
-            .format = format,
-            .width = width,
-            .height = height,
-            .num_levels = mip_levels,
-            .num_faces = 1,
-            .is_compressed = true,
-            .is_cubemap = false,
-            .image_data_index = m_image_data.size(),
-        };
+        our_image.format = format;
+        our_image.width = width;
+        our_image.height = height;
+        our_image.num_levels = mip_levels;
+        our_image.num_faces = 1;
+        our_image.is_compressed = true;
+        our_image.is_cubemap = false;
+        our_image.image_data_index = m_image_data.size();
         m_images.push_back(our_image);
 
         auto path = get_image_cache_path(image.image, our_image);
@@ -772,5 +803,16 @@ void AssetImporter::load_materials(const tinygltf::Model &model) {
             .emission_factor =
                 glm::vec3(emissive_factor[0], emissive_factor[1], emissive_factor[1]),
         });
+    }
+}
+
+void AssetImporter::load_prefab(std::span<const ImmutableNode> nodes) {
+    u32 base_node = m_prefabs_nodes.size();
+    m_root_prefab_nodes.push_back(base_node);
+
+    for (const auto& node : nodes) {
+        ImmutableNode new_node = node;
+        new_node.child_index += base_node;
+        m_prefabs_nodes.push_back(new_node);
     }
 }

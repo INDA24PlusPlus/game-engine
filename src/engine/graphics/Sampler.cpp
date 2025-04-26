@@ -4,6 +4,8 @@
 #include <glad/glad.h>
 #include <utility>
 
+#include "../AssetLoader.h"
+
 namespace engine {
 
 static u32 filter_to_opengl(Sampler::Filter filter) {
@@ -39,6 +41,10 @@ static u32 filter_and_mipmap_mode_to_opengl(Sampler::Filter filter,
 
     assert(0);
     std::unreachable();
+}
+
+void Sampler::init(loader::SamplerInfo info, f32 max_anisotropy) {
+    init(info.min_filter, info.mag_filter, info.mipmap_mode, info.address_mode_u, info.address_mode_v, info.address_mode_w, max_anisotropy);
 }
 
 void Sampler::init(Filter mag_filter,

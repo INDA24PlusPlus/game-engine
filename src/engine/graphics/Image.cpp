@@ -3,8 +3,6 @@
 #include <cassert>
 #include <glad/glad.h>
 
-#include "engine/Scene.h"
-
 namespace engine {
 
 static u32 to_opengl_format(ImageInfo::Format format) {

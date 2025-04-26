@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../core.h"
-#include "../Scene.h"
+#include "../scene/Scene.h"
 
 namespace engine {
 

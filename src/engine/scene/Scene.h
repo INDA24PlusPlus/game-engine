@@ -1,22 +1,22 @@
-#ifndef _SCENE_H
-#define _SCENE_H
+#pragma once
 
+#include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <span>
-#include <string>
-#include <unordered_map>
-#include <vector>
 
-#include "core.h"
+
+#include "AssetManifest.h"
+
+#include "../core.h"
+#include "../utils/logging.h"
+
+namespace engine::loader {
+struct AssetFileData;
+}
 
 namespace engine {
-
-struct MeshTag;
-using MeshHandle = TypedHandle<MeshTag>;
-
-struct NodeTag;
-using NodeHandle = TypedHandle<NodeTag>;
+class Sampler;
+class Image;
 
 struct Vertex {
     glm::vec4 tangent;
@@ -45,36 +45,46 @@ struct Primitive {
     }
 };
 
-struct Node {
+struct ImmutableNode {
+    AssetManifest::Name name;
     glm::quat rotation;
     glm::vec3 translation;
     u32 child_index;
     glm::vec3 scale;
     u32 num_children;
+    u32 mesh_index;
 };
 
-struct AssetHeader {
-    u32 version;
-    u32 num_indices;
-    u32 num_vertices;
-    u32 num_meshes;
-    u32 num_primitives;
-    u32 num_nodes;
-    u32 num_root_nodes;
-    u32 num_name_bytes;
-    u32 num_samplers;
-    u32 num_images;
-    u32 num_textures;
-    u32 num_materials;
-    u64 num_image_bytes;
+struct Material {
+    enum class Flags : u32 {
+        has_base_color_texture = 1 << 0,
+        has_metallic_roughness_texture = 1 << 1,
+        has_normal_map = 1 << 2,
+        has_occlusion_map = 1 << 3,
+        has_emission_map = 1 << 4,
+    };
+
+    Flags flags;
+    glm::vec4 base_color_factor;
+    f32 metallic_factor;
+    f32 roughness_factor;
+    u32 base_color_texture;
+    u32 metallic_roughness_texture;
+    u32 normal_map;
+    f32 normal_map_scale;
+    u32 occlusion_map;
+    f32 occlusion_strength;
+    u32 emission_map;
+    glm::vec3 emission_factor;
 };
 
-// These have "Info" in the name cause they don't contain any actual GPU state.
-struct SamplerInfo {
-    u32 min_filter;
-    u32 mag_filter;
-    u32 wrap_t;
-    u32 wrap_s;
+
+struct PrefabTag;
+using PrefabHandle = TypedHandle<PrefabTag>;
+
+struct Prefab {
+    AssetManifest::Name name;
+    u32 root_node_index;
 };
 
 struct TextureInfo {
@@ -153,60 +163,27 @@ struct ImageInfo {
     }
 };
 
-struct Material {
-    enum class Flags : u32 {
-        has_base_color_texture = 1 << 0,
-        has_metallic_roughness_texture = 1 << 1,
-        has_normal_map = 1 << 2,
-        has_occlusion_map = 1 << 3,
-        has_emission_map = 1 << 4,
-    };
-
-    Flags flags;
-    glm::vec4 base_color_factor;
-    f32 metallic_factor;
-    f32 roughness_factor;
-    u32 base_color_texture;
-    u32 metallic_roughness_texture;
-    u32 normal_map;
-    f32 normal_map_scale;
-    u32 occlusion_map;
-    f32 occlusion_strength;
-    u32 emission_map;
-    glm::vec3 emission_factor;
-};
-
 class Scene {
-   public:
-    // Loaded from disk
-    std::span<u8> m_indices;
-    std::span<Vertex> m_vertices;
-    std::span<Mesh> m_meshes;
-    std::span<Primitive> m_primitives;
+public:
+    void init(loader::AssetFileData& data);
+    Prefab prefab_by_name(const std::string& name) const {
+        if (m_manifest.m_name_to_prefab.find(name) == m_manifest.m_name_to_prefab.end()) {
+            ERROR("{} is not a valid prefab name!", name);
+            exit(1);
+        }
+        u32 index = m_manifest.m_name_to_prefab.at(name);
+        return m_prefabs[index];
+    }
 
-    std::span<Node> m_nodes;
-    std::span<u32> m_root_nodes;
-
-    std::span<SamplerInfo> m_samplers;
-    std::span<ImageInfo> m_images;
-    std::span<TextureInfo> m_textures;
-    std::span<Material> m_materials;
-    std::span<u8> m_image_data;
-
-    // Compute
-    std::vector<glm::mat4> m_global_node_transforms;
-
-    void load_asset_file(const char* path);
-    void compute_global_node_transforms();
-    MeshHandle mesh_from_name(std::string name);
-
-   private:
-    void read_mesh_names(u8*& ptr);
-    void calc_global_node_transform(NodeHandle node_handle, const glm::mat4& parent_transform);
-    std::vector<u8> m_asset_file_mem;
-    std::unordered_map<std::string, MeshHandle> m_names_to_mesh;
+    AssetManifest m_manifest;
+    std::vector<Mesh> m_meshes;
+    std::vector<Primitive> m_primitives;
+    std::vector<Material> m_materials;
+    std::vector<Sampler> m_samplers;
+    std::vector<Image> m_images;
+    std::vector<TextureInfo> m_textures;
+    std::vector<Prefab> m_prefabs;
+    std::vector<ImmutableNode> m_prefab_nodes;
 };
 
-}  // namespace engine
-
-#endif
+}
