@@ -10,6 +10,10 @@
 !shaders/
 !shaders/**
 
+!prefabs/**
+!prefabs/
+!manifest.json
+
 build
 .cache
 
