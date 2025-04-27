@@ -1,10 +1,10 @@
 #include "entityarray.hpp"
+#include "engine/ecs/entity.hpp"
+#include "engine/utils/logging.h"
 
 // Packed array of entities
-EntityArray::EntityArray(u32 s) {
-    data = new Entity[s];
-    idxs = new u32[s];
-    for (u32 i = 0; i < s; i++) {
+EntityArray::EntityArray() {
+    for (u32 i = 0; i < MAX_ENTITIES; i++) {
         idxs[i] = -1;
         data[i] = -1;
     }
@@ -13,8 +13,6 @@ EntityArray::EntityArray(u32 s) {
 }
 
 EntityArray::~EntityArray() {
-    delete[] data;
-    delete[] idxs;
 }
 
 void EntityArray::insert(Entity e) {
@@ -58,4 +56,9 @@ bool EntityArray::next(Iterator &it, Entity &e) {
     e = data[it.next];
     it.next++;
     return true;
+}
+
+Entity *EntityArray::first() {
+    if (head == 0) return nullptr;
+    return &data[0];
 }

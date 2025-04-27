@@ -22,6 +22,7 @@ set(SOURCE_FILES
     src/engine/ecs/utils.cpp
     src/engine/ecs/resource.cpp
     src/engine/ecs/signature.cpp
+    src/engine/ecs/systemmanager.cpp
     src/engine/Input.cpp
     src/engine/network/network.cpp
     src/engine/network/client.cpp
