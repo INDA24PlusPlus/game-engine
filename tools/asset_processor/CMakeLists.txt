@@ -10,6 +10,8 @@ set(SOURCE_FILES
     src/main.cpp
     src/AssetImporter.cpp
     ../../src/engine/utils/logging.cpp
+    ../../src/engine/scene/Node.cpp
+    ../../src/engine/scene/AssetManifest.cpp
 )
 
 set(COMMON_COMPILE_FLAGS -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function)

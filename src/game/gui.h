@@ -14,6 +14,4 @@ namespace gui {
     void render();
 }
 
-static void draw_node(State& state, u32 node_index);
-
 #endif
