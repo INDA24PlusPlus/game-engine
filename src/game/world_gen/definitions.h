@@ -1,8 +1,7 @@
 #ifndef DEFINITIONS_H
 #define DEFINITIONS_H
 
-#include <vector>
-#include <utility>
+#include <bits/stdc++.h>
 
 using namespace std;
 
