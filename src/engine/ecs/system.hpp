@@ -1,8 +1,9 @@
 #pragma once
 
+#include "engine/utils/logging.h"
 #include "entity.hpp"
 #include "types.h"
-#include <set>
+#include "entityarray.hpp"
 
 const u32 MAX_SYSTEMS = 128;
 
@@ -10,14 +11,22 @@ class SystemBase {
     protected:
         static u32 id_counter;
     public:
-        std::set<Entity> entities;
+        static u32 get_id();
+        EntityArray entities;
+
+        SystemBase() : entities(MAX_ENTITIES) {
+
+        }
 };
 
 template <typename T>
-class System : public SystemBase {
+class System: public SystemBase {
     public:
         static u32 get_id() {
             static u32 id = id_counter++;
+            if (id >= MAX_SYSTEMS) {
+                ERROR("System ID exceeds maximum systems");
+            }
             return id;
         }
 };
@@ -30,8 +39,6 @@ class SystemManager {
 
         template <typename T>
             T* register_system() {
-                const u32 system_id = T::get_id();
-                assert(system_id < MAX_SYSTEMS, "System ID is too large");
                 systems[system_count] = new T();
                 signatures[system_count] = 0;
                 system_count++;
