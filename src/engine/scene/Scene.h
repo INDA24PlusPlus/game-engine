@@ -25,6 +25,9 @@ struct Vertex {
     glm::vec2 uv;
 };
 
+
+struct MeshTag;
+using MeshHandle = TypedHandle<MeshTag>;
 struct Mesh {
     u32 primitive_index;
     u32 num_primitives;
@@ -166,6 +169,16 @@ struct ImageInfo {
 class Scene {
 public:
     void init(loader::AssetFileData& data);
+
+    MeshHandle mesh_by_name(const std::string& name) const {
+        if (m_manifest.m_name_to_mesh.find(name) == m_manifest.m_name_to_mesh.end()) {
+            ERROR("{} is not a valid mesh name!", name);
+            exit(1);
+        }
+        u32 index = m_manifest.m_name_to_mesh.at(name);
+        return MeshHandle(index);
+    }
+
     Prefab prefab_by_name(const std::string& name) const {
         if (m_manifest.m_name_to_prefab.find(name) == m_manifest.m_name_to_prefab.end()) {
             ERROR("{} is not a valid prefab name!", name);

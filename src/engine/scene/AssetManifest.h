@@ -33,8 +33,11 @@ class AssetManifest {
     }
 
     std::vector<Name> m_mesh_names;
+    std::unordered_map<std::string, u32> m_name_to_mesh;
+
     std::vector<Name> m_prefab_names;
     std::unordered_map<std::string, u32> m_name_to_prefab;
+
     std::vector<u8> m_name_bytes;
 };
 

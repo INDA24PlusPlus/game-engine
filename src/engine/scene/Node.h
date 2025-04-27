@@ -35,6 +35,10 @@ struct Node {
 
 class NodeHierarchy {
    public:
+    void init();
+    NodeHandle add_root_node(const Node& node);
+    NodeHandle add_node(const Node& node, NodeHandle parent);
+
     std::vector<Node> m_nodes;
     std::vector<ImmutableNode> to_immutable(AssetManifest& manifest, NodeHandle handle);
     void to_immutable_internal(AssetManifest& manifest, std::vector<ImmutableNode>& immutable, u32 node_index,

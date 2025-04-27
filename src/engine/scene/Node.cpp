@@ -8,6 +8,19 @@
 
 namespace engine {
 
+NodeHandle NodeHierarchy::add_root_node(const Node& node) {
+    u32 node_index = m_nodes.size();
+    m_nodes.push_back(node);
+    return NodeHandle(node_index);
+}
+
+NodeHandle NodeHierarchy::add_node(const Node& node, NodeHandle parent) {
+    u32 child_idx = m_nodes.size();
+    m_nodes.push_back(node);
+    m_nodes[parent.get_value()].children.push_back(child_idx);
+    return NodeHandle(child_idx);
+}
+
 void NodeHierarchy::to_immutable_internal(AssetManifest& manifest,
                                           std::vector<ImmutableNode>& immutable, u32 node_index,
                                           u32 mut_node_index) {

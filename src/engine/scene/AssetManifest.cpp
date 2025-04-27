@@ -26,6 +26,11 @@ void AssetManifest::deserialize(std::span<u8> name_bytes, std::span<Name> mesh_n
     m_mesh_names.assign(mesh_names.begin(), mesh_names.end());
     m_prefab_names.assign(prefab_names.begin(), prefab_names.end());
 
+    for (size_t i = 0; i < m_mesh_names.size(); ++i) {
+        auto name = get_name_data(m_mesh_names[i]);
+        m_name_to_mesh[std::string(name)] = i;
+    }
+
     for (size_t i = 0; i < m_prefab_names.size(); ++i) {
         auto name = get_name_data(m_prefab_names[i]);
         m_name_to_prefab[std::string(name)] = i;

@@ -11,6 +11,10 @@
         {
             "name": "Sword",
             "path": "assets/autumn_sword/sword.gltf"
+        },
+        {
+            "name": "Cube",
+            "path": "assets/cube.glb"
         }
     ],
     "prefabs": [

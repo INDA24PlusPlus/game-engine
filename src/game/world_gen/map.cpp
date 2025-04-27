@@ -1,6 +1,3 @@
-#include <bits/stdc++.h>
-using namespace std;
-
 #include "map.h"
 #include <iostream>
 #include <cmath>
@@ -35,13 +32,13 @@ void Map::generate_rooms(ll amount_rooms, ll min_size, ll max_size){
         
         if(!check_room(x1-2, y1-2, x2+2, y2+2)) continue;
         place_room(x1, y1, x2, y2, rooms.size());
-        rooms.pb(make_tuple(x1, y1, x2, y2));
+        rooms.pb(std::make_tuple(x1, y1, x2, y2));
     }
 
     for(ll i = 0; i < rooms.size()*100; i++){
         ll room = rng() % rooms.size();
         ll x1, x2, y1, y2;
-        tie(x1, y1, x2, y2) = rooms[room];
+        std::tie(x1, y1, x2, y2) = rooms[room];
         pl dir;
         if(rng()%2) dir = {(x1+x2)/2<grid.size()/2?1:-1, 0};
         else dir = {0, (y1+y2)/2<grid.size()/2?1:-1};
@@ -59,10 +56,10 @@ void Map::generate_paths() {
     vpl rooms_pos;
     fo(i, rooms.size()) {
         ll x1, y1, x2, y2;
-        tie(x1, y1, x2, y2) = rooms[i];
+        std::tie(x1, y1, x2, y2) = rooms[i];
         rooms_pos.pb({(rng()%(x2-x1+1))+x1, (rng()%(y2-y1+1))+y1});
     }
-    priority_queue<tuple<double, ll, ll>> pq;
+    std::priority_queue<std::tuple<double, ll, ll>> pq;
     for(ll i = 0; i < rooms.size(); i++){
         for(ll j = i+1; j < rooms.size(); j++){
             double dist = sqrt((rooms_pos[i].F-rooms_pos[j].F)*(rooms_pos[i].F-rooms_pos[j].F) + (rooms_pos[i].S-rooms_pos[j].S)*(rooms_pos[i].S-rooms_pos[j].S));
@@ -81,8 +78,8 @@ void Map::generate_paths() {
 
     for(auto [i, j] : edges){
         ll x1, y1, x2, y2;
-        tie(x1, y1) = rooms_pos[i];
-        tie(x2, y2) = rooms_pos[j];
+        std::tie(x1, y1) = rooms_pos[i];
+        std::tie(x2, y2) = rooms_pos[j];
         while(x1 != x2 || y1 != y2){
             if(rng()%2){
                 if(x1 < x2) x1++;
@@ -104,15 +101,15 @@ Map::Map(ll size, ll amount_rooms, ll min_size, ll max_size, ll seed){
 }
 
 void Map::print(){
-    cout << "Rummen: ";
-    fo(i, rooms.size()) cout << i << " ";
-    cout << endl;
+    std::cout << "Rummen: ";
+    fo(i, rooms.size()) std::cout << i << " ";
+    std::cout << std::endl;
     fo(i, grid.size()) {
         fo(j, grid[i].size()) {
-            if(grid[i][j] == -1) cout << " ";
-            else if(grid[i][j] == -2) cout << "#";
-            else cout << char(grid[i][j]+'a');
+            if(grid[i][j] == -1) std::cout << " ";
+            else if(grid[i][j] == -2) std::cout << "#";
+            else std::cout << char(grid[i][j]+'a');
         }
-        cout << endl;
+        std::cout << std::endl;
     }
 }

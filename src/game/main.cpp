@@ -1,26 +1,23 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #include <print>
+#include <glm/gtc/matrix_transform.hpp>
 
+#include "engine/AssetLoader.h"
 #include "engine/Input.h"
 #include "engine/Renderer.h"
 #include "engine/core.h"
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
-#include "engine/AssetLoader.h"
-
 #include "glm/ext/quaternion_common.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "gui.h"
 #include "state.h"
+#include "world_gen/map.h"
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
 
 template <class... Args>
 void fatal(std::format_string<Args...> fmt, Args &&...args) {
@@ -35,6 +32,37 @@ static void error_callback(int error, const char *description) {
 static void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
     (void)window;
     glViewport(0, 0, width, height);
+}
+
+static void gen_world(State &state, engine::NodeHandle &root) {
+    Map map(100, 15, 5, 10, 1337);
+
+    engine::NodeHandle map_node = state.hierarchy.add_node(
+        {
+            .name = "Map",
+            .rotation = glm::quat(1, 0, 0, 0),
+            .scale = glm::vec3(5, 1, 5),
+        },
+        root);
+
+    engine::MeshHandle cube_mesh = state.scene.mesh_by_name("Cube");
+
+    for (size_t i = 0; i < map.grid.size(); ++i) {
+        for (size_t j = 0; j < map.grid[i].size(); ++j) {
+            if (map.grid[i][j] != -1) {
+                state.hierarchy.add_node(
+                    {
+                        .kind = engine::Node::Kind::mesh,
+                        .name = std::format("cube_{}_{}", i, j),
+                        .rotation = glm::quat(1, 0, 0, 0),
+                        .translation = glm::vec3(map.grid.size() * -0.5 + (f32)i, -2.5, map.grid[i].size() * -0.5 + (f32)j),
+                        .scale = glm::vec3(1),
+                        .mesh_index = cube_mesh.get_value(),
+                    },
+                    map_node);
+            }
+        }
+    }
 }
 
 int main(void) {
@@ -82,18 +110,21 @@ int main(void) {
         state.renderer.make_resources_for_scene(data);
     }
 
-    state.hierarchy.m_nodes.push_back({
+    engine::NodeHandle root_node = state.hierarchy.add_root_node({
         .name = "Game",
         .rotation = glm::quat(1, 0, 0, 0),
         .scale = glm::vec3(1),
     });
 
+    gen_world(state, root_node);
 
     auto player_prefab = state.scene.prefab_by_name("Player");
-    engine::NodeHandle player = state.hierarchy.instantiate_prefab(state.scene, player_prefab, engine::NodeHandle(0));
+    engine::NodeHandle player =
+        state.hierarchy.instantiate_prefab(state.scene, player_prefab, engine::NodeHandle(0));
 
     auto enemy_prefab = state.scene.prefab_by_name("Enemy");
-    engine::NodeHandle enemy = state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
+    engine::NodeHandle enemy =
+        state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);

@@ -246,7 +246,12 @@ void AssetImporter::load_asset(std::string path) {
     std::string err;
     std::string warn;
 
-    bool res = gltf.LoadASCIIFromFile(&model, &err, &warn, path);
+    bool res;
+    if (path.contains("glb")) {
+        res = gltf.LoadBinaryFromFile(&model, &err, &warn, path);
+    } else {
+        res = gltf.LoadASCIIFromFile(&model, &err, &warn, path);
+    }
     if (!warn.empty()) {
         WARN("{}", warn);
     }
@@ -363,31 +368,31 @@ void AssetImporter::load_vertices(const tinygltf::Model &model, const tinygltf::
     }
 }
 
-//void AssetImporter::load_nodes(const tinygltf::Model &model) {
-//    if (model.scenes.size() == 0) {
-//        ERROR("glTF model has no scenes!");
-//        exit(1);
-//    }
-//    if (model.defaultScene == -1) {
-//        ERROR("glTF model has no default scene");
-//        exit(1);
-//    }
+// void AssetImporter::load_nodes(const tinygltf::Model &model) {
+//     if (model.scenes.size() == 0) {
+//         ERROR("glTF model has no scenes!");
+//         exit(1);
+//     }
+//     if (model.defaultScene == -1) {
+//         ERROR("glTF model has no default scene");
+//         exit(1);
+//     }
 //
-//    const auto &scene = model.scenes[model.defaultScene];
-//    for (size_t i = 0; i < scene.nodes.size(); ++i) {
-//        u32 our_node_index = m_nodes.size();
-//        m_nodes.resize(m_nodes.size() + 1);
-//        load_node(model, scene.nodes[i], our_node_index);
-//        m_root_nodes.push_back(our_node_index);
-//    }
+//     const auto &scene = model.scenes[model.defaultScene];
+//     for (size_t i = 0; i < scene.nodes.size(); ++i) {
+//         u32 our_node_index = m_nodes.size();
+//         m_nodes.resize(m_nodes.size() + 1);
+//         load_node(model, scene.nodes[i], our_node_index);
+//         m_root_nodes.push_back(our_node_index);
+//     }
 //
-//    for (size_t i = 0; i < m_meshes.size(); ++i) {
-//        if (m_meshes[i].node_index == UINT32_MAX) {
-//            ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
-//            exit(1);
-//        }
-//    }
-//}
+//     for (size_t i = 0; i < m_meshes.size(); ++i) {
+//         if (m_meshes[i].node_index == UINT32_MAX) {
+//             ERROR("Mesh {} is not associated with any node. Bug in asset loader?", i);
+//             exit(1);
+//         }
+//     }
+// }
 
 glm::mat4 to_glm(const std::vector<double> &matrix) {
     return glm::mat4(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5], matrix[6],
@@ -395,61 +400,62 @@ glm::mat4 to_glm(const std::vector<double> &matrix) {
                      matrix[13], matrix[14], matrix[15]);
 }
 
-//void AssetImporter::load_node(const tinygltf::Model &model, u32 gltf_node_index,
-//                              u32 our_node_index) {
-//    const auto &gltf_node = model.nodes[gltf_node_index];
-//    INFO("--------- Loading glTF node {} ----------", gltf_node_index);
-//    INFO("Node has {} children", gltf_node.children.size());
-//    if (m_node_map.find(m_base_node + gltf_node_index) != m_node_map.end()) {
-//        ERROR(
-//            "An attmept was made parse the same gltf node twice. Either the model is malformed or "
-//            "there is a bug in our loader!");
-//        exit(1);
-//    }
-//    m_node_map[m_base_node + gltf_node_index] = our_node_index;
+// void AssetImporter::load_node(const tinygltf::Model &model, u32 gltf_node_index,
+//                               u32 our_node_index) {
+//     const auto &gltf_node = model.nodes[gltf_node_index];
+//     INFO("--------- Loading glTF node {} ----------", gltf_node_index);
+//     INFO("Node has {} children", gltf_node.children.size());
+//     if (m_node_map.find(m_base_node + gltf_node_index) != m_node_map.end()) {
+//         ERROR(
+//             "An attmept was made parse the same gltf node twice. Either the model is malformed or
+//             " "there is a bug in our loader!");
+//         exit(1);
+//     }
+//     m_node_map[m_base_node + gltf_node_index] = our_node_index;
 //
-//    auto &our_node = m_nodes[our_node_index];
-//    our_node = {
-//        .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-//        .child_index = (u32)m_nodes.size(),
-//        .scale = glm::vec3(1.0f),
-//        .num_children = (u32)gltf_node.children.size(),
-//    };
+//     auto &our_node = m_nodes[our_node_index];
+//     our_node = {
+//         .rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+//         .child_index = (u32)m_nodes.size(),
+//         .scale = glm::vec3(1.0f),
+//         .num_children = (u32)gltf_node.children.size(),
+//     };
 //
-//    if (gltf_node.mesh != -1) {
-//        m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
-//        INFO("Node references mesh {}", gltf_node.mesh);
-//    }
+//     if (gltf_node.mesh != -1) {
+//         m_meshes[m_base_mesh + gltf_node.mesh].node_index = our_node_index;
+//         INFO("Node references mesh {}", gltf_node.mesh);
+//     }
 //
-//    if (gltf_node.scale.size() != 0) {
-//        our_node.scale = glm::vec3(gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2]);
-//    }
-//    if (gltf_node.rotation.size() != 0) {
-//        our_node.rotation = glm::quat(gltf_node.rotation[3], gltf_node.rotation[0],
-//                                      gltf_node.rotation[1], gltf_node.rotation[2]);
-//    }
-//    if (gltf_node.translation.size() != 0) {
-//        our_node.translation =
-//            glm::vec3(gltf_node.translation[0], gltf_node.translation[1], gltf_node.translation[2]);
-//    }
+//     if (gltf_node.scale.size() != 0) {
+//         our_node.scale = glm::vec3(gltf_node.scale[0], gltf_node.scale[1], gltf_node.scale[2]);
+//     }
+//     if (gltf_node.rotation.size() != 0) {
+//         our_node.rotation = glm::quat(gltf_node.rotation[3], gltf_node.rotation[0],
+//                                       gltf_node.rotation[1], gltf_node.rotation[2]);
+//     }
+//     if (gltf_node.translation.size() != 0) {
+//         our_node.translation =
+//             glm::vec3(gltf_node.translation[0], gltf_node.translation[1],
+//             gltf_node.translation[2]);
+//     }
 //
-//    if (gltf_node.matrix.size()) {
-//        auto mat = to_glm(gltf_node.matrix);
+//     if (gltf_node.matrix.size()) {
+//         auto mat = to_glm(gltf_node.matrix);
 //
-//        glm::vec3 skew;
-//        glm::vec4 perspective;
-//        bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation,
-//                                            our_node.translation, skew, perspective);
-//        assert(did_decompose);
-//    }
+//         glm::vec3 skew;
+//         glm::vec4 perspective;
+//         bool did_decompose = glm::decompose(mat, our_node.scale, our_node.rotation,
+//                                             our_node.translation, skew, perspective);
+//         assert(did_decompose);
+//     }
 //
-//    // After we resize we can no longer use the alias 'our_node'
-//    m_nodes.resize(m_nodes.size() + our_node.num_children);
+//     // After we resize we can no longer use the alias 'our_node'
+//     m_nodes.resize(m_nodes.size() + our_node.num_children);
 //
-//    for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
-//        load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
-//    }
-//}
+//     for (size_t i = 0; i < m_nodes[our_node_index].num_children; i++) {
+//         load_node(model, gltf_node.children[i], m_nodes[our_node_index].child_index + i);
+//     }
+// }
 
 void AssetImporter::load_textures(const tinygltf::Model &model) {
     std::vector<bool> is_srgb;
@@ -810,7 +816,7 @@ void AssetImporter::load_prefab(std::span<const ImmutableNode> nodes) {
     u32 base_node = m_prefabs_nodes.size();
     m_root_prefab_nodes.push_back(base_node);
 
-    for (const auto& node : nodes) {
+    for (const auto &node : nodes) {
         ImmutableNode new_node = node;
         new_node.child_index += base_node;
         m_prefabs_nodes.push_back(new_node);
