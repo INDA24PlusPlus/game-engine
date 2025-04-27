@@ -148,6 +148,10 @@ int main(void) {
     state.enemy.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     state.enemy.scale = glm::vec3(1.0f);
     state.enemy.speed = 3;
+    
+    // init camera orientation
+    state.camera.m_orientation =
+        glm::quatLookAt(glm::normalize(glm::vec3(-3, -1, -3)), glm::vec3(0, 1, 0));
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
@@ -180,35 +184,38 @@ int main(void) {
         if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
         if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
 
-        if (glm::length(direction) > 0) {
-            if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+        
+        if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+            if (glm::length(direction) > 0) {
                 state.camera.move(glm::normalize(direction), state.delta_time);
-            } else {
-                auto forward = state.camera.m_orientation * glm::vec3(0, 0, -1);
-                auto right = state.camera.m_orientation * glm::vec3(1, 0, 0);
-                forward.y = 0;
-                right.y = 0;
+            }
+        } else {
+            auto forward = state.camera.m_orientation * glm::vec3(0, 0, -1);
+            auto right = state.camera.m_orientation * glm::vec3(1, 0, 0);
+            forward.y = 0;
+            right.y = 0;
 
-                forward = glm::normalize(forward);
-                right = glm::normalize(right);
-                auto movement = (right * direction.x + forward * direction.z) * state.player.speed *
-                                state.delta_time;
-                state.player.position += movement;
+            forward = glm::normalize(forward);
+            right = glm::normalize(right);
+            auto movement = (right * direction.x + forward * direction.z) * state.player.speed *
+                            state.delta_time;
+            state.player.position += movement;
 
+            if (glm::length(direction) > 0) {
                 glm::quat target_rotation =
                     glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
-
+                    
                 state.player.rotation =
                     glm::slerp(state.player.rotation, target_rotation, state.delta_time * 8.0f);
-
-                // camera movement
-                glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                glm::vec3 camera_target_position = state.player.position + camera_offset;
-                state.camera.m_pos =
-                    glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
-                state.camera.m_orientation =
-                    glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
             }
+
+            // camera movement
+            float camera_distance = 10;
+            glm::vec3 camera_target_position = state.player.position 
+                - state.camera.m_orientation * glm::vec3(0, 0, -1) * camera_distance;
+            state.camera.m_pos =
+                glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
+            
         }
 
         // ememy movement
