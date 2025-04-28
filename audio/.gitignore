@@ -1,0 +1,17 @@
+**
+
+!src/
+!src/*
+
+!include/
+!include/*
+
+!submodules/
+!submodules/*
+
+!CMakeLists.txt
+!start.sh
+!README.md
+
+!.gitignore
+!.gitmodules

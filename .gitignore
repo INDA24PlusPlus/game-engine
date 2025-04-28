@@ -10,6 +10,9 @@
 !shaders/
 !shaders/**
 
+!audio/
+!audio/**
+
 !prefabs/**
 !prefabs/
 !manifest.json

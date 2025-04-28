@@ -1,0 +1,3 @@
+[submodule "submodules/String-Formatter"]
+	path = submodules/String-Formatter
+	url = git@github.com:yayl/string-formatter
