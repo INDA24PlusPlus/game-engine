@@ -1,0 +1,25 @@
+{
+    "meshes": [
+        {
+            "name": "Helmet",
+            "path": "assets/SciFiHelmet/glTF/SciFiHelmet.gltf"
+        },
+        {
+            "name": "Sponza",
+            "path": "assets/Sponza/Sponza.gltf"
+        },
+        {
+            "name": "Sword",
+            "path": "assets/autumn_sword/sword.gltf"
+        },
+        {
+            "name": "Cube",
+            "path": "assets/cube.glb"
+        }
+    ],
+    "prefabs": [
+        "prefabs/Player.json",
+        "prefabs/Scene.json",
+        "prefabs/Enemy.json"
+    ]
+}

@@ -4,13 +4,15 @@
 !src/**
 !tools/
 !tools/**
-!assets/
-!assets/**
 !vendor/
 !vendor/**
 
 !shaders/
 !shaders/**
+
+!prefabs/**
+!prefabs/
+!manifest.json
 
 build
 .cache

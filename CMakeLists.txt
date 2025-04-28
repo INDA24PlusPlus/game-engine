@@ -10,10 +10,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SOURCE_FILES
     src/game/main.cpp
     src/game/gui.cpp
-    src/engine/utils/logging.cpp
+    src/game/world_gen/map.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
     src/engine/Scene.cpp
+    src/engine/Input.cpp
+    src/engine/AssetLoader.cpp
+    src/engine/utils/logging.cpp
     src/engine/ecs/ecs.cpp
     src/engine/ecs/entity.cpp
     src/engine/ecs/component.cpp
@@ -23,10 +26,15 @@ set(SOURCE_FILES
     src/engine/ecs/resource.cpp
     src/engine/ecs/signature.cpp
     src/engine/ecs/systemmanager.cpp
-    src/engine/Input.cpp
     src/engine/network/network.cpp
     src/engine/network/client.cpp
     src/engine/network/server.cpp
+    src/engine/scene/Scene.cpp
+    src/engine/scene/Node.cpp
+    src/engine/scene/AssetManifest.cpp
+    src/engine/graphics/Pipeline.cpp
+    src/engine/graphics/Image.cpp
+    src/engine/graphics/Sampler.cpp
     vendor/glad/src/glad.c
 )
 
@@ -41,7 +49,7 @@ FetchContent_Declare(
 FetchContent_Declare(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG v1.91.9b
+    GIT_TAG v1.91.9b-docking
 )
 
 FetchContent_Declare(
@@ -57,6 +65,15 @@ set_target_properties(game_engine PROPERTIES
     CXX_STANDARD 23
     CXX_STANDARD_REQUIRED ON
 )
+
+option(ENABLE_EDITOR "Enable editor features" ON)
+
+if(ENABLE_EDITOR)
+    target_compile_definitions(game_engine PRIVATE ENABLE_EDITOR=1)
+    target_include_directories(game_engine PRIVATE vendor/nlohmann)
+endif()
+
+
 target_include_directories(game_engine PRIVATE src)
 
 # GLM
