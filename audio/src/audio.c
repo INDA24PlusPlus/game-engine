@@ -1,6 +1,5 @@
 #include "audio.h"
 
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,11 +20,22 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     const uint32_t sample_rate = device->device.sampleRate;
     const struct source_list * sources = device->sources.list;
     const uint32_t sources_count = sources->source_count;
-    const float scale = 1.0f / sqrtf(sources_count);
+
+    uint32_t active_sources = 0;
+    for (uint32_t i = 0; i < sources_count; ++i) {
+        active_sources += source_list_at(sources, i)->state == PLAYING;
+    }
+
+    const float scale = active_sources == 0
+        ? 1.0f
+        : 1.0f / active_sources;
  
     for (uint32_t i = 0; i < sources_count; ++i) {
-        source_play_sound(source_list_at(sources, i), pOutput, frameCount, scale);
-    }
+        struct sound_source * source = source_list_at(sources, i);
+        if (source->state == PLAYING) {
+            source_play_sound(source, pOutput, frameCount, scale);
+        }
+    }    
 }
 
 struct audio_context * init_audio() {

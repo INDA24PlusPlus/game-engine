@@ -1,6 +1,7 @@
 #include "source.h"
 
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,24 +34,26 @@ struct sound_source init_source(const char * file_path) {
         exit(1);
     }
 
-    return (struct sound_source) {.audio = init_sound(fp, wav)};
+    return (struct sound_source) {.audio = init_sound(fp, wav), .volume = 100, .state = PLAYING};
 }
 
 void source_play_sound(struct sound_source * sound, SOUND_BUF_TYPE * output, uint32_t frames, float scale) {
     // make sure that we have enough frames to play
     uint32_t frames_left = sound->audio.buf_end_index - sound->audio.buf_index;
-    if (frames_left < frames) {
+    if (frames_left < frames * CHANNELS) {
         sound_read(&sound->audio, APPEND);
 
         // check that there were enough frames left
         frames_left = sound->audio.buf_end_index - sound->audio.buf_index;
-        if (frames_left < frames) {
-            printf("Too few frames left: %d/%d\n", frames_left, frames);
-            return;
+        if (frames_left < frames * CHANNELS) {
+            frames = frames_left / CHANNELS;
+            sound->state = FINISHED;
         }
     }
 
-    for (uint32_t i = 0; i < frames; i += CHANNELS) {
+    scale *= powf(sound->volume / 100.0f, 2.0f);
+
+    for (uint32_t i = 0; i < frames; ++i) {
         for (uint32_t c = 0; c < CHANNELS; ++c) {
             SOUND_BUF_TYPE sample = sound->audio.buf[sound->audio.buf_index + i * CHANNELS + c];
             sample *= scale;
@@ -67,9 +70,13 @@ void source_play_sound(struct sound_source * sound, SOUND_BUF_TYPE * output, uin
             assert(0);
 #endif
 
-            output[i * CHANNELS + c] += sample;
+            output[i * CHANNELS + c] += mixed;
         }
     }
 
     sound->audio.buf_index += frames * CHANNELS;
+}
+
+void source_set_volume(struct sound_source * source, uint8_t volume) {
+    source->volume = volume;
 }

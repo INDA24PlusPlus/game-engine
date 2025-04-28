@@ -13,9 +13,13 @@ int main() {
     struct audio_context * context = init_audio();
 
     struct sound_source note_sound = init_source("test.wav");
-    struct sound_source ost_sound = init_source("suzume-ost.wav");
+    struct sound_source ost_sound_1 = init_source("suzume-ost.wav");
+    
+    source_set_volume(&note_sound, 25);
     audio_add_sound(context, note_sound);
-    audio_add_sound(context, ost_sound);
+
+    source_set_volume(&ost_sound_1, 50);
+    audio_add_sound(context, ost_sound_1);
 
     device_toggle_play(context->device); // is paused as default
 

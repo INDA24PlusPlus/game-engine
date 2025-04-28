@@ -1,7 +1,9 @@
 #!/bin/sh
 
+cd "$(dirname "$0")"
+mkdir -p ./build
 cd ./build
-if [ "$1" == "c" ] ; then  # recompile everything
+if [ "$1" = "c" ] ; then  # recompile everything
 	rm -rf CMakeFiles
 	rm CMakeCache.txt
 	cmake -D CMAKE_BUILD_TYPE=Debug ..
@@ -18,12 +20,12 @@ echo "-------------------------------------------------"
 set -e
 
 
-if [ "$1" == "perf" ] ; then  # perf test
+if [ "$1" = "perf" ] ; then  # perf test
     rm callgrind.* &> /dev/null # rm callgrind.* > /dev/null 2>&1
     shift 1
     valgrind --tool=callgrind --collect-systime=usec ./build/audio "$@"
     qcachegrind
-elif [ "$1" == "mem" ] ; then # memory test
+elif [ "$1" = "mem" ] ; then # memory test
     shift 1
     valgrind ./build/audio "$@"
 else

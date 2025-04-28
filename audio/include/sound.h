@@ -4,7 +4,7 @@
 
 #include "wav.h"
 
-#define MAX_SOUND_BUF_SIZE 1 * 8 * 1024 * 1024 // 1MB
+#define MAX_SOUND_BUF_SIZE 50 * 8 * 1024 // 50KB
 #define SOUND_BUF_TYPE int16_t
 #define _pcms16le // remove this if SOUND_BUF_TYPE is no longer int16_t
 
