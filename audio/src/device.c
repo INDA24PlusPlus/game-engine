@@ -1,7 +1,9 @@
 #include "device.h"
 
+#include "effects/spatializer.h"
 #include "source.h"
 #include "sources.h"
+#include "vec.h"
 #include <stdlib.h>
 
 // =======================
@@ -9,8 +11,10 @@
 // =======================
 struct audio_device * init_device(ma_device_info device_info, struct source_list * sources, ma_context * context, ma_device_data_proc callback) {
     struct audio_device * device = calloc(1, sizeof(struct audio_device));
+
     device->sources = init_device_sources(sources);
     device->info = device_info;
+    device->listener = init_device_listener();
 
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
     config.playback.pDeviceID = &device->info.id;
@@ -32,6 +36,15 @@ struct device_sources init_device_sources(struct source_list * source_list) {
     return (struct device_sources) {.list = source_list};
 }
 
+struct audio_listener init_device_listener() {
+    return (struct audio_listener) {
+        .up = vec3(0.0f, 1.0f, 0.0),
+        .velocity = vec3_zero,
+        .forward = vec3(0.0f, 0.0f, 1.0f),
+        .position = vec3(2.0f, 0.0f, 0.0f)
+    };
+}
+
 // =================
 // |    Methods    |
 // =================
@@ -41,6 +54,10 @@ void device_add_source(struct audio_device * device, struct sound_source source)
 
 void device_toggle_play(struct audio_device * device) {
     device->is_playing ^= 1;
+}
+
+void device_set_position(struct audio_device * device, Vec3 position) {
+    device->listener.position = position;
 }
 
 // =================
