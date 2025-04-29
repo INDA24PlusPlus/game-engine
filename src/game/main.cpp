@@ -1,12 +1,18 @@
-#include <glad/glad.h>
+#include "engine/Camera.h"
 #include <GLFW/glfw3.h>
-#include <print>
 #include <glm/gtc/matrix_transform.hpp>
+#include <print>
 
 #include "engine/AssetLoader.h"
 #include "engine/Input.h"
 #include "engine/Renderer.h"
 #include "engine/core.h"
+#include "engine/ecs/component.hpp"
+#include "engine/ecs/ecs.hpp"
+#include "engine/ecs/entity.hpp"
+#include "engine/ecs/entityarray.hpp"
+#include "engine/ecs/resource.hpp"
+#include "engine/ecs/signature.hpp"
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
@@ -18,240 +24,467 @@
 #include "state.h"
 #include "world_gen/map.h"
 
+class RDeltaTime : public Resource<RDeltaTime> {
+public:
+};
+
+class RInput : public Resource<RInput> {
+public:
+  engine::Input m_input;
+  RInput(GLFWwindow *window) : m_input(window) {}
+};
+
+class RRenderer : public Resource<RRenderer> {
+public:
+  engine::Renderer m_renderer;
+  RRenderer(engine::Renderer renderer) : m_renderer(renderer) {}
+};
+
+class RScene : public Resource<RScene> {
+public:
+  engine::Scene m_scene;
+  engine::Camera m_camera;
+  engine::NodeHierarchy m_hierarchy;
+  GLFWwindow *m_window;
+  RScene(engine::Scene scene, engine::Camera camera, GLFWwindow *window,
+         engine::NodeHierarchy hierarchy)
+      : m_scene(scene), m_camera(camera), m_hierarchy(hierarchy),
+        m_window(window) {}
+};
+
+class CPlayer : public Component<CPlayer> {
+public:
+};
+
+class CLocal : public Component<CLocal> {
+public:
+};
+
+class COnline : public Component<COnline> {
+public:
+};
+
+class CVelocity : public Component<CVelocity> {
+public:
+  glm::vec3 vel;
+};
+
+class CTranslation : public Component<CTranslation> {
+public:
+  glm::vec3 pos;
+  glm::quat rot;
+  glm::vec3 scale;
+};
+
+class CEnemy : public Component<CEnemy> {
+public:
+};
+
+class CName : public Component<CName> {
+public:
+  char name[32];
+};
+
+class CMesh : public Component<CMesh> {
+public:
+  engine::NodeHandle m_node;
+  CMesh(engine::NodeHandle node) : m_node(node) {}
+  CMesh() {}
+};
+
+class SMove : public System<SMove> {
+public:
+  SMove() {
+    queries[0] = Query(CTranslation::get_id(), CVelocity::get_id());
+    query_count = 1;
+  }
+
+  void update(ECS &ecs) {
+    auto entities = get_query(0)->get_entities();
+    Iterator it = {.next = 0};
+    Entity e;
+    while (entities->next(it, e)) {
+      CTranslation &translation = ecs.get_component<CTranslation>(e);
+      CVelocity &vel = ecs.get_component<CVelocity>(e);
+      translation.pos += vel.vel;
+      vel.vel = glm::vec3(0);
+    }
+  }
+};
+
+class SEnemyMove : public System<SEnemyMove> {
+public:
+  SEnemyMove() {
+    queries[0] =
+        Query(CVelocity::get_id(), CTranslation::get_id(), CEnemy::get_id());
+    queries[1] = Query(CTranslation::get_id(), CPlayer::get_id());
+    query_count = 2;
+  }
+
+  void update(ECS &ecs) {
+    auto enemy_entities = get_query(0)->get_entities();
+    auto player_entities = get_query(1)->get_entities();
+    Iterator e_it = {.next = 0};
+    Entity e_e;
+    while (enemy_entities->next(e_it, e_e)) {
+      CTranslation &enemy_translation = ecs.get_component<CTranslation>(e_e);
+      CVelocity &enemy_vel = ecs.get_component<CVelocity>(e_e);
+      // CEnemy& enemy = ecs.get_component<CEnemy>(e_e);
+
+      Iterator p_it = {.next = 0};
+      Entity p_e;
+      float dx = 0;
+      float dy = 0;
+      float dist = sqrt(dx * dx + dy * dy);
+
+      while (player_entities->next(p_it, p_e)) {
+        CTranslation &player_translation = ecs.get_component<CTranslation>(p_e);
+
+        float new_dx = player_translation.pos.x - enemy_translation.pos.x;
+        float new_dy = player_translation.pos.y - enemy_translation.pos.y;
+        float new_dist = sqrt(new_dx * new_dx + new_dy * new_dy);
+
+        if (dist == 0 || new_dist < dist) {
+          dx = new_dx;
+          dy = new_dy;
+          dist = new_dist;
+        }
+      }
+
+      if (dist > 0) {
+        enemy_vel.vel.x = dx / dist;
+        enemy_vel.vel.y = dy / dist;
+      }
+    }
+  }
+};
+
+class SCollide : public System<SCollide> {
+public:
+  SCollide() {
+    queries[0] = Query(CTranslation::get_id());
+    queries[1] = Query(CTranslation::get_id());
+    query_count = 2;
+  }
+
+  void update(ECS &ecs) {
+    auto entities_a = get_query(0)->get_entities();
+    auto entities_b = get_query(1)->get_entities();
+    Iterator it_a = {.next = 0};
+    Iterator it_b = {.next = 0};
+    Entity e_a, e_b;
+    while (entities_a->next(it_a, e_a)) {
+      CTranslation &translation_a = ecs.get_component<CTranslation>(e_a);
+      while (entities_b->next(it_b, e_b)) {
+        // Skip self-collision
+        if (e_a == e_b)
+          continue;
+        CTranslation &translation_b = ecs.get_component<CTranslation>(e_b);
+
+        if (translation_a.pos.x < translation_b.pos.x + translation_b.scale.x &&
+            translation_a.pos.x + translation_a.scale.x > translation_b.pos.x &&
+            translation_a.pos.y < translation_b.pos.y + translation_b.scale.y &&
+            translation_a.pos.y + translation_a.scale.y > translation_b.pos.y) {
+          // Collision detected
+          printf("Collision detected between entity %d and entity %d\n", e_a,
+                 e_b);
+        }
+      }
+    }
+  }
+};
+
+class SRender : public System<SRender> {
+public:
+  SRender() {
+    queries[0] = Query(CTranslation::get_id(), CMesh::get_id());
+    query_count = 1;
+  }
+
+  void update(ECS &ecs) {
+    auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
+    auto scene = ecs.get_resource<RScene>();
+    auto hierarchy = scene->m_hierarchy;
+    auto camera = scene->m_camera;
+    auto window = scene->m_window;
+    int height;
+    int width;
+
+    auto entities = get_query(0)->get_entities();
+    Iterator it = {.next = 0};
+    Entity e;
+    while (entities->next(it, e)) {
+      auto translation = ecs.get_component<CTranslation>(e);
+      auto mesh = ecs.get_component<CMesh>(e);
+      hierarchy.m_nodes[mesh.m_node.get_value()].translation = translation.pos;
+      hierarchy.m_nodes[mesh.m_node.get_value()].rotation = translation.rot;
+      hierarchy.m_nodes[mesh.m_node.get_value()].scale = translation.scale;
+    }
+
+    glfwPollEvents();
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // Draw
+    renderer->clear();
+    renderer->begin_pass(scene->m_scene, camera, width, height);
+    renderer->draw_hierarchy(scene->m_scene, hierarchy);
+    renderer->end_pass();
+
+    gui::render();
+
+    glfwSwapBuffers(scene->m_window);
+  }
+};
+
+class SLocalMove : public System<SLocalMove> {
+public:
+  SLocalMove() {
+    queries[0] = Query(CVelocity::get_id(), CLocal::get_id());
+    query_count = 1;
+  }
+
+  void update(ECS &ecs) {
+    auto input = ecs.get_resource<RInput>()->m_input;
+    auto scene = ecs.get_resource<RScene>();
+    auto camera = &scene->m_camera;
+    auto window = scene->m_window;
+    auto local_player = get_query(0)->get_entities()->first();
+    auto local_vel = ecs.get_component<CVelocity>(*local_player);
+    auto local_translation = ecs.get_component<CTranslation>(*local_player);
+
+    if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
+      bool mouse_locked =
+          glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+      glfwSetInputMode(window, GLFW_CURSOR,
+                       mouse_locked ? GLFW_CURSOR_NORMAL
+                                    : GLFW_CURSOR_DISABLED);
+    }
+
+    glm::vec3 direction(0.0f);
+
+    if (input.is_key_pressed(GLFW_KEY_W))
+      direction.z += 1.0f;
+    if (input.is_key_pressed(GLFW_KEY_S))
+      direction.z -= 1.0f;
+    if (input.is_key_pressed(GLFW_KEY_A))
+      direction.x -= 1.0f;
+    if (input.is_key_pressed(GLFW_KEY_D))
+      direction.x += 1.0f;
+
+    if (glm::length(direction) > 0) {
+      if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+        camera->move(glm::normalize(direction), 0.016f);
+      } else {
+        auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
+        auto right = camera->m_orientation * glm::vec3(1, 0, 0);
+        forward.y = 0;
+        right.y = 0;
+
+        forward = glm::normalize(forward);
+        right = glm::normalize(right);
+
+        local_vel.vel = (right * direction.x + forward * direction.z) *
+                        camera->m_speed * 0.016f;
+
+        glm::quat target_rotation =
+            glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
+
+        local_translation.rot =
+            glm::slerp(local_translation.rot, target_rotation, 0.016f * 8.0f);
+
+        glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
+        glm::vec3 camera_target_position =
+            local_translation.pos + camera_offset;
+        camera->m_pos =
+            glm::mix(camera->m_pos, camera_target_position, 0.016f * 5);
+        camera->m_orientation =
+            glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
+      }
+    }
+  }
+};
 
 template <class... Args>
 void fatal(std::format_string<Args...> fmt, Args &&...args) {
-    ERROR(fmt, std::forward<Args>(args)...);
-    exit(1);
+  ERROR(fmt, std::forward<Args>(args)...);
+  exit(1);
 }
 
 static void error_callback(int error, const char *description) {
-    ERROR("GLFW error with code {}: {}", error, description);
+  ERROR("GLFW error with code {}: {}", error, description);
 }
 
-static void framebuffer_size_callback(GLFWwindow *window, int width, int height) {
-    (void)window;
-    glViewport(0, 0, width, height);
+static void framebuffer_size_callback(GLFWwindow *window, int width,
+                                      int height) {
+  (void)window;
+  // glViewport(0, 0, width, height);
 }
 
-static void gen_world(State &state, engine::NodeHandle &root) {
-    Map map(100, 15, 5, 10, 1337);
+static void gen_world(engine::NodeHierarchy &hierarchy, engine::Scene &scene,
+                      engine::NodeHandle &root) {
+  Map map(100, 15, 5, 10, 1337);
 
-    engine::NodeHandle map_node = state.hierarchy.add_node(
-        {
-            .name = "Map",
-            .rotation = glm::quat(1, 0, 0, 0),
-            .scale = glm::vec3(5, 1, 5),
-        },
-        root);
+  engine::NodeHandle map_node = hierarchy.add_node(
+      {
+          .name = "Map",
+          .rotation = glm::quat(1, 0, 0, 0),
+          .scale = glm::vec3(5, 1, 5),
+      },
+      root);
 
-    engine::MeshHandle cube_mesh = state.scene.mesh_by_name("Cube");
+  engine::MeshHandle cube_mesh = scene.mesh_by_name("Cube");
 
-    for (size_t i = 0; i < map.grid.size(); ++i) {
-        for (size_t j = 0; j < map.grid[i].size(); ++j) {
-            if (map.grid[i][j] != -1) {
-                state.hierarchy.add_node(
-                    {
-                        .kind = engine::Node::Kind::mesh,
-                        .name = std::format("cube_{}_{}", i, j),
-                        .rotation = glm::quat(1, 0, 0, 0),
-                        .translation = glm::vec3(map.grid.size() * -0.5 + (f32)i, -2.5, map.grid[i].size() * -0.5 + (f32)j),
-                        .scale = glm::vec3(1),
-                        .mesh_index = cube_mesh.get_value(),
-                    },
-                    map_node);
-            }
-        }
+  for (size_t i = 0; i < map.grid.size(); ++i) {
+    for (size_t j = 0; j < map.grid[i].size(); ++j) {
+      if (map.grid[i][j] != -1) {
+        hierarchy.add_node(
+            {
+                .kind = engine::Node::Kind::mesh,
+                .name = std::format("cube_{}_{}", i, j),
+                .rotation = glm::quat(1, 0, 0, 0),
+                .translation = glm::vec3(map.grid.size() * -0.5 + (f32)i, -2.5,
+                                         map.grid[i].size() * -0.5 + (f32)j),
+                .scale = glm::vec3(1),
+                .mesh_index = cube_mesh.get_value(),
+            },
+            map_node);
+      }
     }
+  }
 }
 
 int main(void) {
-    if (!glfwInit()) {
-        fatal("Failed to initiliaze glfw");
-    }
-    INFO("Initialized GLFW");
-    glfwSetErrorCallback(error_callback);
+  if (!glfwInit()) {
+    fatal("Failed to initiliaze glfw");
+  }
+  INFO("Initialized GLFW");
+  glfwSetErrorCallback(error_callback);
 
-    f32 content_x_scale;
-    f32 content_y_scale;
-    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &content_x_scale, &content_y_scale);
-    INFO("Monitor content scale is ({}, {})", content_x_scale, content_y_scale);
+  f32 content_x_scale;
+  f32 content_y_scale;
+  glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &content_x_scale,
+                             &content_y_scale);
+  INFO("Monitor content scale is ({}, {})", content_x_scale, content_y_scale);
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-    glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 8);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+  glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
+  glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
+  glfwWindowHint(GLFW_SAMPLES, 8);
 #ifndef NDEBUG
-    glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
+  glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
 #else
-    glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
+  glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
 #endif
 
-    f32 content_scale = std::max(content_x_scale, content_y_scale);
-    auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale, "Skeletal Animation",
-                                   nullptr, nullptr);
-    if (!window) {
-        fatal("Failed to create glfw window");
-    }
+  f32 content_scale = std::max(content_x_scale, content_y_scale);
+  auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale,
+                                 "Skeletal Animation", nullptr, nullptr);
+  if (!window) {
+    fatal("Failed to create glfw window");
+  }
 
-    glfwMakeContextCurrent(window);
+  glfwMakeContextCurrent(window);
 
-    engine::Input input(window);
-    State state = {};
-    state.camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
-    state.mouse_locked = true;
-    state.sensitivity = 0.001f;
+  // State state = {};
+  // state.mouse_locked = true;
+  // state.sensitivity = 0.001f;
 
-    state.renderer.init((engine::Renderer::LoadProc)glfwGetProcAddress);
-    {
-        auto data = engine::loader::load_asset_file("scene_data.bin");
-        state.scene.init(data);
-        state.renderer.make_resources_for_scene(data);
-    }
+  glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    engine::NodeHandle root_node = state.hierarchy.add_root_node({
-        .name = "Game",
-        .rotation = glm::quat(1, 0, 0, 0),
-        .scale = glm::vec3(1),
-    });
+  int width;
+  int height;
+  glfwGetFramebufferSize(window, &width, &height);
+  // glViewport(0, 0, width, height);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    gen_world(state, root_node);
+  // Create ECS
+  ECS ecs = ECS();
 
-    auto player_prefab = state.scene.prefab_by_name("Player");
-    engine::NodeHandle player =
-        state.hierarchy.instantiate_prefab(state.scene, player_prefab, engine::NodeHandle(0));
+  // Register resources
+  INFO("Create resources");
+  engine::Scene scene;
+  engine::Input input(window);
+  engine::NodeHierarchy hierarchy;
 
-    auto enemy_prefab = state.scene.prefab_by_name("Enemy");
-    engine::NodeHandle enemy =
-        state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
+  engine::NodeHandle root_node = hierarchy.add_root_node({
+      .name = "Game",
+      .rotation = glm::quat(1, 0, 0, 0),
+      .scale = glm::vec3(1),
+  });
 
-    glfwSetWindowUserPointer(window, &state);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+  engine::Camera camera;
+  camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
 
-    int width;
-    int height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+  engine::Renderer renderer;
+  renderer.init((engine::Renderer::LoadProc)glfwGetProcAddress);
+  {
+    auto data = engine::loader::load_asset_file("scene_data.bin");
+    scene.init(data);
+    renderer.make_resources_for_scene(data);
+  }
 
-    gui::init(window, content_scale);
+  gen_world(hierarchy, scene, root_node);
 
-    state.player.position = glm::vec3(0.0f);
-    state.player.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    // Should probably always be 1
-    state.player.scale = glm::vec3(1.0f);
-    state.player.speed = 10;
+  ecs.register_resource(new RInput(window));
+  ecs.register_resource(new RRenderer(renderer));
+  ecs.register_resource(new RScene(scene, camera, window, hierarchy));
 
-    // Init enemy
-    state.enemy.position = glm::vec3(20, 0, 20);
-    state.enemy.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    state.enemy.scale = glm::vec3(1.0f);
-    state.enemy.speed = 3;
+  // Register componets
+  INFO("Create componets");
+  ecs.register_component<CPlayer>();
+  ecs.register_component<CTranslation>();
+  ecs.register_component<CVelocity>();
+  ecs.register_component<CEnemy>();
+  ecs.register_component<CName>();
 
-    while (!glfwWindowShouldClose(window)) {
-        state.prev_time = state.curr_time;
-        state.curr_time = glfwGetTime();
-        state.delta_time = state.curr_time - state.prev_time;
+  // Register systems
+  INFO("Create systems");
+  auto move_system = ecs.register_system<SMove>();
+  auto render_system = ecs.register_system<SRender>();
+  auto move_camera_system = ecs.register_system<SLocalMove>();
 
-        // Update
-        glfwPollEvents();
-        glfwGetFramebufferSize(window, &width, &height);
-        if (width == 0 || height == 0) {
-            continue;
-        }
-        state.fb_width = width;
-        state.fb_height = height;
+  // state.player.speed = 10;
 
-        state.prev_delta_times[state.fps_counter_index] = state.delta_time;
-        state.fps_counter_index = (state.fps_counter_index + 1) % state.prev_delta_times.size();
+  // Create local player
+  INFO("Create player");
+  Entity player = ecs.create_entity();
+  ecs.add_component<CPlayer>(player, CPlayer());
+  ecs.add_component<CTranslation>(
+      player, CTranslation{.pos = glm::vec3(0.0f),
+                           .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                           .scale = glm::vec3(1.0f)});
+  ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
+  ecs.add_component<CName>(player, CName{.name = "Player"});
 
-        // keyboard input
-        if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
-            state.mouse_locked = !state.mouse_locked;
-            glfwSetInputMode(window, GLFW_CURSOR,
-                             state.mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-        }
+  DEBUG("Create player mesh");
+  auto player_prefab = scene.prefab_by_name("Player");
+  engine::NodeHandle player_node =
+      hierarchy.instantiate_prefab(scene, player_prefab, engine::NodeHandle(0));
 
-        glm::vec3 direction(0.0f);
+  DEBUG("Add mesh component");
+  ecs.add_component<CMesh>(player, CMesh(player_node));
 
-        if (input.is_key_pressed(GLFW_KEY_W)) direction.z += 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_S)) direction.z -= 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
-        if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
+  INFO("Begin game loop");
+  while (!glfwWindowShouldClose(window)) {
+    // Update
+    // glfwPollEvents();
+    // glfwGetFramebufferSize(window, &width, &height);
+    // if (width == 0 || height == 0) {
+    //   continue;
+    // }
+    // state.fb_width = width;
+    // state.fb_height = height;
+    //
+    // state.prev_delta_times[state.fps_counter_index] = state.delta_time;
+    // state.fps_counter_index =
+    //     (state.fps_counter_index + 1) % state.prev_delta_times.size();
+    // Update
+    move_system->update(ecs);
+    move_camera_system->update(ecs);
+    render_system->update(ecs);
+  }
 
-        if (glm::length(direction) > 0) {
-            if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
-                state.camera.move(glm::normalize(direction), state.delta_time);
-            } else {
-                auto forward = state.camera.m_orientation * glm::vec3(0, 0, -1);
-                auto right = state.camera.m_orientation * glm::vec3(1, 0, 0);
-                forward.y = 0;
-                right.y = 0;
-
-                forward = glm::normalize(forward);
-                right = glm::normalize(right);
-                auto movement = (right * direction.x + forward * direction.z) * state.player.speed *
-                                state.delta_time;
-                state.player.position += movement;
-
-                glm::quat target_rotation =
-                    glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
-
-                state.player.rotation =
-                    glm::slerp(state.player.rotation, target_rotation, state.delta_time * 8.0f);
-
-                // camera movement
-                glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                glm::vec3 camera_target_position = state.player.position + camera_offset;
-                state.camera.m_pos =
-                    glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
-                state.camera.m_orientation =
-                    glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
-            }
-        }
-
-        // ememy movement
-        {
-            glm::vec3 enemy_move = state.player.position - state.enemy.position;
-            enemy_move.y = 0;
-            if (enemy_move.x != 0 || enemy_move.z != 0) enemy_move = glm::normalize(enemy_move);
-
-            glm::quat target_rotation = glm::quatLookAt(enemy_move, glm::vec3(0, 1, 0));
-            state.enemy.position += enemy_move * state.enemy.speed * state.delta_time;
-            state.enemy.rotation =
-                glm::slerp(state.enemy.rotation, target_rotation, state.delta_time * 8.0f);
-        }
-
-        // mouse input
-        if (state.mouse_locked) {
-            glm::vec2 mouse_delta = input.get_mouse_position_delta();
-            state.camera.rotate(-mouse_delta.x * state.sensitivity,
-                                -mouse_delta.y * state.sensitivity);
-        }
-
-        glfwPollEvents();
-        gui::build(state);
-
-        // Not the formal way to set a node transform. Just temporary
-        state.hierarchy.m_nodes[player.get_value()].translation = state.player.position;
-        state.hierarchy.m_nodes[player.get_value()].rotation = state.player.rotation;
-        state.hierarchy.m_nodes[player.get_value()].scale = state.player.scale;
-
-        state.hierarchy.m_nodes[enemy.get_value()].translation = state.enemy.position;
-        state.hierarchy.m_nodes[enemy.get_value()].rotation = state.enemy.rotation;
-        state.hierarchy.m_nodes[enemy.get_value()].scale = state.enemy.scale;
-
-        // Draw
-        state.renderer.clear();
-        state.renderer.begin_pass(state.scene, state.camera, width, height);
-        state.renderer.draw_hierarchy(state.scene, state.hierarchy);
-        state.renderer.end_pass();
-
-        gui::render();
-
-        glfwSwapBuffers(window);
-
-        input.update();
-    }
+  // glfwPollEvents();
+  // gui::build(state);
 }
