@@ -12,8 +12,8 @@
 int main() {
     struct audio_context * context = init_audio();
 
-    struct sound_source note_sound = init_source("test.wav");
-    struct sound_source ost_sound_1 = init_source("suzume-ost.wav");
+    struct sound_source note_sound = init_source("assets/test.wav");
+    struct sound_source ost_sound_1 = init_source("assets/suzume-ost.wav");
     
     source_set_volume(&note_sound, 25);
     // audio_add_sound(context, note_sound);

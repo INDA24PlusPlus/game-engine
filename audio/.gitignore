@@ -6,6 +6,9 @@
 !include/
 !include/*
 
+!assets/
+!assets/*.wav
+
 !submodules/
 !submodules/*
 
