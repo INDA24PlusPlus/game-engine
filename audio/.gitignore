@@ -7,7 +7,7 @@
 !include/*
 
 !assets/
-!assets/*.wav
+!assets/**.wav
 
 !submodules/
 !submodules/*

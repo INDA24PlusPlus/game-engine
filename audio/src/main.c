@@ -7,7 +7,6 @@
 #include <stdio.h>
 
 #include <miniaudio.h>
-#include <fmt.h>
 
 int main() {
     struct audio_context * context = init_audio();
