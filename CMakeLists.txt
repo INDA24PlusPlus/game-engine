@@ -13,7 +13,6 @@ set(SOURCE_FILES
     src/game/world_gen/map.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
-    src/engine/Scene.cpp
     src/engine/Input.cpp
     src/engine/AssetLoader.cpp
     src/engine/utils/logging.cpp
