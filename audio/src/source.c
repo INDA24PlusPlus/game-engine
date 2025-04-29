@@ -56,10 +56,9 @@ void source_play_sound(struct sound_source * sound, SOUND_BUF_TYPE * output, uin
     for (uint32_t i = 0; i < frames; ++i) {
         for (uint32_t c = 0; c < CHANNELS; ++c) {
             SOUND_BUF_TYPE sample = sound->audio.buf[sound->audio.buf_index + i * CHANNELS + c];
-            sample *= scale;
 
 #ifdef _pcms16le
-            int32_t mixed = (int32_t)output[i * CHANNELS + c] + (int32_t)sample;
+            int32_t mixed = (int32_t)output[i * CHANNELS + c] + (int32_t)sample * scale;
 
             if (INT16_MAX < mixed) {
                 mixed = INT16_MAX;

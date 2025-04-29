@@ -8,8 +8,10 @@
 #include "sound.h"
 #include "source.h"
 #include "sources.h"
+#include "timer.h"
 
 void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+    start_timer();
     struct audio_device * device = pDevice->pUserData;
     memset(pOutput, 0, frameCount * CHANNELS * sizeof(SOUND_BUF_TYPE));
 
@@ -36,6 +38,7 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
             source_play_sound(source, pOutput, frameCount, scale);
         }
     }    
+    PRINT_EXECUTION("Audio");
 }
 
 struct audio_context * init_audio() {
