@@ -1,8 +1,6 @@
 #pragma once
 
-#include "logging.h"
 #include <glm/glm.hpp>
-#include "utils/logging.h"
 #include <string>
 #include <unordered_map>
 

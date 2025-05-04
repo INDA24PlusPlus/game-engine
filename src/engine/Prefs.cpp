@@ -4,6 +4,8 @@
 #include <iostream>
 #include <sstream>
 
+#include "utils/logging.h"
+
 Prefs::Prefs(const std::string &path) : prefs_path(path) {
     std::ifstream file(path);
     if (!file) {
@@ -187,7 +189,7 @@ bool Prefs::get_bool(const std::string &key) {
 
 std::string Prefs::get_string(const std::string &key) {
     if (!validate_key(key))
-        return;
+        return "";
 
     return internal_storage[key].value;
 }
