@@ -4,17 +4,13 @@
 #include <iostream>
 #include <sstream>
 
-// personal todo:
-// - better error handling and error output
-// - even more types? idk
-
 Prefs::Prefs(const std::string &path) : prefs_path(path) {
     std::ifstream file(path);
     if (!file) {
         // Create new prefs file
         std::ofstream new_file(path);
         if (!new_file) {
-            std::cout << "ERR: Failed to create prefs file" << '\n';
+            ERROR("Failed to create prefs file");
         }
         new_file.close();
     } else {
@@ -43,7 +39,7 @@ Prefs::Prefs(const std::string &path) : prefs_path(path) {
                 else if (type == "vec4")
                     value_type = PrefValueType::VEC4;
                 else {
-                    std::cout << "WARN: Unknown type " << type << " for prefs entry " << key << '\n';
+                    WARN("Unknown type %s for prefs entry %s", type.c_str(), key.c_str());
                     continue;
                 }
 
@@ -102,12 +98,12 @@ void Prefs::flush() {
 
 inline bool validate_key(const std::string &key) {
     if (key.empty()) {
-        std::cout << "ERR: Key cannot be empty" << '\n';
+        ERROR("Key cannot be empty");
         return false;
     }
 
     if (key.find(' ') != std::string::npos) {
-        std::cout << "ERR: Key cannot contain spaces" << '\n';
+        ERROR("Key cannot contain spaces");
         return false;
     }
 
