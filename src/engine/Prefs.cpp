@@ -4,8 +4,11 @@
 #include <iostream>
 #include <sstream>
 
+<<<<<<< HEAD
 #include "utils/logging.h"
 
+=======
+>>>>>>> 5b032684b60b1180c7e1fa78da916c4ed416136c
 Prefs::Prefs(const std::string &path) : prefs_path(path) {
     std::ifstream file(path);
     if (!file) {
@@ -189,7 +192,11 @@ bool Prefs::get_bool(const std::string &key) {
 
 std::string Prefs::get_string(const std::string &key) {
     if (!validate_key(key))
+<<<<<<< HEAD
         return "";
+=======
+        return;
+>>>>>>> 5b032684b60b1180c7e1fa78da916c4ed416136c
 
     return internal_storage[key].value;
 }
