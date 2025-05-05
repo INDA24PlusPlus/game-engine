@@ -1,8 +1,8 @@
 #include "engine/Camera.h"
-#include <glad/glad.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <cstdio>
+#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 
@@ -67,10 +67,6 @@ class CLocal : public Component<CLocal> {
 public:
 };
 
-class COnline : public Component<COnline> {
-public:
-};
-
 class CVelocity : public Component<CVelocity> {
 public:
   glm::vec3 vel;
@@ -81,15 +77,6 @@ public:
   glm::vec3 pos;
   glm::quat rot;
   glm::vec3 scale;
-};
-
-class CEnemy : public Component<CEnemy> {
-public:
-};
-
-class CName : public Component<CName> {
-public:
-  char name[32];
 };
 
 class CMesh : public Component<CMesh> {
@@ -127,88 +114,6 @@ public:
       if (glm::length(vel.vel) > 0) {
         translation.pos += vel.vel;
         vel.vel = glm::vec3(0);
-      }
-    }
-  }
-};
-
-class SEnemyMove : public System<SEnemyMove> {
-public:
-  SEnemyMove() {
-    queries[0] =
-        Query(CVelocity::get_id(), CTranslation::get_id(), CEnemy::get_id());
-    queries[1] = Query(CTranslation::get_id(), CPlayer::get_id());
-    query_count = 2;
-  }
-
-  void update(ECS &ecs) {
-    auto enemy_entities = get_query(0)->get_entities();
-    auto player_entities = get_query(1)->get_entities();
-    Iterator e_it = {.next = 0};
-    Entity e_e;
-    while (enemy_entities->next(e_it, e_e)) {
-      CTranslation &enemy_translation = ecs.get_component<CTranslation>(e_e);
-      CVelocity &enemy_vel = ecs.get_component<CVelocity>(e_e);
-      // CEnemy& enemy = ecs.get_component<CEnemy>(e_e);
-
-      Iterator p_it = {.next = 0};
-      Entity p_e;
-      float dx = 0;
-      float dy = 0;
-      float dist = sqrt(dx * dx + dy * dy);
-
-      while (player_entities->next(p_it, p_e)) {
-        CTranslation &player_translation = ecs.get_component<CTranslation>(p_e);
-
-        float new_dx = player_translation.pos.x - enemy_translation.pos.x;
-        float new_dy = player_translation.pos.y - enemy_translation.pos.y;
-        float new_dist = sqrt(new_dx * new_dx + new_dy * new_dy);
-
-        if (dist == 0 || new_dist < dist) {
-          dx = new_dx;
-          dy = new_dy;
-          dist = new_dist;
-        }
-      }
-
-      if (dist > 0) {
-        enemy_vel.vel.x = dx / dist;
-        enemy_vel.vel.y = dy / dist;
-      }
-    }
-  }
-};
-
-class SCollide : public System<SCollide> {
-public:
-  SCollide() {
-    queries[0] = Query(CTranslation::get_id());
-    queries[1] = Query(CTranslation::get_id());
-    query_count = 2;
-  }
-
-  void update(ECS &ecs) {
-    auto entities_a = get_query(0)->get_entities();
-    auto entities_b = get_query(1)->get_entities();
-    Iterator it_a = {.next = 0};
-    Iterator it_b = {.next = 0};
-    Entity e_a, e_b;
-    while (entities_a->next(it_a, e_a)) {
-      CTranslation &translation_a = ecs.get_component<CTranslation>(e_a);
-      while (entities_b->next(it_b, e_b)) {
-        // Skip self-collision
-        if (e_a == e_b)
-          continue;
-        CTranslation &translation_b = ecs.get_component<CTranslation>(e_b);
-
-        if (translation_a.pos.x < translation_b.pos.x + translation_b.scale.x &&
-            translation_a.pos.x + translation_a.scale.x > translation_b.pos.x &&
-            translation_a.pos.y < translation_b.pos.y + translation_b.scale.y &&
-            translation_a.pos.y + translation_a.scale.y > translation_b.pos.y) {
-          // Collision detected
-          printf("Collision detected between entity %d and entity %d\n", e_a,
-                 e_b);
-        }
       }
     }
   }
@@ -307,13 +212,14 @@ public:
       glm::quat target_rotation =
           glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
 
-      local_translation.rot =
-          glm::slerp(local_translation.rot, target_rotation, time->delta_time * 8.0f);
+      local_translation.rot = glm::slerp(local_translation.rot, target_rotation,
+                                         time->delta_time * 8.0f);
     }
 
     glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
     glm::vec3 camera_target_position = local_translation.pos + camera_offset;
-    camera->m_pos = glm::mix(camera->m_pos, camera_target_position, time->delta_time * 5);
+    camera->m_pos =
+        glm::mix(camera->m_pos, camera_target_position, time->delta_time * 5);
     camera->m_orientation =
         glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
     input.update();
@@ -333,7 +239,7 @@ static void error_callback(int error, const char *description) {
 static void framebuffer_size_callback(GLFWwindow *window, int width,
                                       int height) {
   (void)window;
-  // glViewport(0, 0, width, height);
+  glViewport(0, 0, width, height);
 }
 
 static void gen_world(engine::NodeHierarchy &hierarchy, engine::Scene &scene,
@@ -402,10 +308,6 @@ int main(void) {
 
   glfwMakeContextCurrent(window);
 
-  // State state = {};
-  // state.mouse_locked = true;
-  // state.sensitivity = 0.001f;
-
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
   // Create ECS
@@ -447,8 +349,6 @@ int main(void) {
   ecs.register_component<CPlayer>();
   ecs.register_component<CTranslation>();
   ecs.register_component<CVelocity>();
-  ecs.register_component<CEnemy>();
-  ecs.register_component<CName>();
   ecs.register_component<CMesh>();
 
   // Register systems
@@ -457,8 +357,6 @@ int main(void) {
   auto render_system = ecs.register_system<SRender>();
   auto local_move_system = ecs.register_system<SLocalMove>();
   auto delat_time_system = ecs.register_system<SDeltaTime>();
-
-  // state.player.speed = 10;
 
   // Create local player
   INFO("Create player");
@@ -469,7 +367,6 @@ int main(void) {
                            .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                            .scale = glm::vec3(1.0f)});
   ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
-  ecs.add_component<CName>(player, CName{.name = "Player"});
 
   auto player_prefab = scene.prefab_by_name("Player");
   engine::NodeHandle player_node =
@@ -477,17 +374,7 @@ int main(void) {
 
   ecs.add_component<CMesh>(player, CMesh(player_node));
 
-  // Entity sponza = ecs.create_entity();
-  // ecs.add_component(sponza,
-  //                   CTranslation{.pos = glm::vec3(0.0f),
-  //                                .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-  //                                .scale = glm::vec3(1.0f)});
-  // auto sponza_prefab = scene.prefab_by_name("Sponza");
-  // engine::NodeHandle sponza_node =
-  //     hierarchy.instantiate_prefab(scene, sponza_prefab,
-  //     engine::NodeHandle(0));
-  // ecs.add_component(sponza, CMesh(sponza_node));
-
+  // Regisetr resources
   ecs.register_resource(new RInput(window));
   ecs.register_resource(new RRenderer(renderer));
   ecs.register_resource(new RScene(scene, camera, window, hierarchy));
@@ -496,24 +383,9 @@ int main(void) {
   INFO("Begin game loop");
   while (!glfwWindowShouldClose(window)) {
     // Update
-    // glfwPollEvents();
-    // glfwGetFramebufferSize(window, &width, &height);
-    // if (width == 0 || height == 0) {
-    //   continue;
-    // }
-    // state.fb_width = width;
-    // state.fb_height = height;
-    //
-    // state.prev_delta_times[state.fps_counter_index] = state.delta_time;
-    // state.fps_counter_index =
-    //     (state.fps_counter_index + 1) % state.prev_delta_times.size();
-    // Update
     delat_time_system->update(ecs);
     local_move_system->update(ecs);
     move_system->update(ecs);
     render_system->update(ecs);
   }
-
-  // glfwPollEvents();
-  // gui::build(state);
 }
