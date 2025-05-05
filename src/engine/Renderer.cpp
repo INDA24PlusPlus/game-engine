@@ -211,7 +211,11 @@ void Renderer::draw_mesh(u32 mesh_handle, const glm::mat4 &transform) {
 
         auto num_indices = prim.num_indices();
         u64 byte_offset = prim.indices_start;
-
+        if (material.is_double_sided) {
+            glDisable(GL_CULL_FACE);
+        } else {
+            glEnable(GL_CULL_FACE);
+        }
         glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type, (void *)byte_offset,
                                  prim.base_vertex);
     }
