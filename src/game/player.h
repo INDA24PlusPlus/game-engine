@@ -8,6 +8,7 @@ struct Player {
     glm::quat rotation;
     glm::vec3 scale;
     float health;
+    float max_health;
     float speed;
 
     Player();

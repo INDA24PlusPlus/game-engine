@@ -28,8 +28,8 @@ void Enemy::update(State &state) {
         hover_time += state.delta_time * speed;
     } else {
         // Damage player
-        state.player.take_damage(10);
-        cooldown = 0.5;
+        state.player.take_damage(20);
+        cooldown = 1.0;
     }
 }
 

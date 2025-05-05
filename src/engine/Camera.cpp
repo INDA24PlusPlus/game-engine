@@ -17,7 +17,7 @@ void Camera::rotate(f32 yaw, f32 pitch) {
     m_yaw += yaw;
     m_pitch = glm::clamp(m_pitch, glm::radians(-89.0f), glm::radians(89.0f));
 
-    auto q_yaw = glm::angleAxis(yaw, glm::vec3(0, 1, 0));
+    auto q_yaw = glm::angleAxis(m_yaw, glm::vec3(0, 1, 0));
     auto q_pitch = glm::angleAxis(m_pitch, glm::vec3(1, 0, 0));
 
     m_orientation = q_yaw * q_pitch;

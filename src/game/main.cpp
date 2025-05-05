@@ -65,6 +65,15 @@ static void gen_world(State &state, engine::NodeHandle &root) {
     }
 }
 
+inline glm::vec4 from_hex(const char* h) {
+    unsigned int r, g, b, a = 255;
+    if (std::strlen(h) == 7)
+        std::sscanf(h, "#%02x%02x%02x", &r, &g, &b);
+    else
+        std::sscanf(h, "#%02x%02x%02x%02x", &r, &g, &b, &a);
+    return glm::vec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f);
+}
+
 int main(void) {
     if (!glfwInit()) {
         fatal("Failed to initiliaze glfw");
@@ -246,8 +255,46 @@ int main(void) {
         state.renderer.draw_hierarchy(state.scene, state.hierarchy);
         state.renderer.end_pass();
 
+        // draw health bar :skull:
         state.renderer.begin_rect_pass();
-        state.renderer.draw_rect({ .x = 100, .y = 100, .width = 1000, .height = 1000}, glm::vec4(1.f, 1.f, 1.f, 0.5f));
+        {
+            float hpbar_width = 256.f;
+            float hpbar_height = 32.f;
+            float margin = 12.f;
+            float border_size = 4.f;
+
+            static float smooth_health = state.player.health;
+            static float last_health = state.player.health;
+            static float damage_timer = 0.f;     
+
+            // smooth taken damage indicator bar
+            if(state.player.health < last_health) {
+                last_health = state.player.health;
+                damage_timer = 0.2f;
+            }
+            if(damage_timer > 0.f) {
+                damage_timer -= state.delta_time;
+                if(damage_timer <= 0.f) {
+                    last_health = state.player.health;
+                }
+            }else {
+                smooth_health = glm::mix(smooth_health, state.player.health, state.delta_time * 10.f);
+            }
+
+            // damage indicator bar (shows how much damage was taken)
+            float damage_bar_width = hpbar_width * (state.player.health / state.player.max_health);
+            state.renderer.draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = damage_bar_width, .height = hpbar_height}, from_hex("#ff0000a0"));
+
+            // hp bar
+            float bar_width = hpbar_width * (smooth_health / state.player.max_health);
+            state.renderer.draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = bar_width, .height = hpbar_height}, from_hex("#ff8519a0"));
+            
+            // background
+            state.renderer.draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = hpbar_width, .height = hpbar_height}, from_hex("#000000a0"));
+
+            // border
+            state.renderer.draw_rect({ .x = (float)width - hpbar_width - margin - border_size, .y = margin - border_size, .width = hpbar_width + 2 * border_size, .height = hpbar_height + 2 * border_size}, from_hex("#2a2a2aff"));
+        }
         state.renderer.end_rect_pass(state.fb_width, state.fb_height);
 
         gui::render();
