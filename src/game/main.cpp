@@ -16,6 +16,7 @@
 #include "engine/ecs/entityarray.hpp"
 #include "engine/ecs/resource.hpp"
 #include "engine/ecs/signature.hpp"
+#include "engine/ecs/system.hpp"
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
@@ -30,6 +31,8 @@
 
 class RDeltaTime : public Resource<RDeltaTime> {
 public:
+  f32 delta_time;
+  f32 prev_time;
 };
 
 class RInput : public Resource<RInput> {
@@ -94,6 +97,17 @@ public:
   engine::NodeHandle m_node;
   CMesh(engine::NodeHandle node) : m_node(node) {}
   CMesh() {}
+};
+
+class SDeltaTime : public System<SDeltaTime> {
+public:
+  SDeltaTime() {}
+
+  void update(ECS &ecs) {
+    auto time = ecs.get_resource<RDeltaTime>();
+    time->delta_time = glfwGetTime() - time->prev_time;
+    time->prev_time = glfwGetTime();
+  }
 };
 
 class SMove : public System<SMove> {
@@ -249,13 +263,15 @@ public:
   }
 
   void update(ECS &ecs) {
+    auto time = ecs.get_resource<RDeltaTime>();
     auto input = ecs.get_resource<RInput>()->m_input;
     auto scene = ecs.get_resource<RScene>();
     auto camera = &scene->m_camera;
     auto window = scene->m_window;
     auto local_player = get_query(0)->get_entities()->first();
-    CVelocity& local_vel = ecs.get_component<CVelocity>(*local_player);
-    CTranslation& local_translation = ecs.get_component<CTranslation>(*local_player);
+    CVelocity &local_vel = ecs.get_component<CVelocity>(*local_player);
+    CTranslation &local_translation =
+        ecs.get_component<CTranslation>(*local_player);
 
     if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
       bool mouse_locked =
@@ -286,19 +302,18 @@ public:
       right = glm::normalize(right);
 
       local_vel.vel = (right * direction.x + forward * direction.z) *
-                      camera->m_speed * 0.016f;
+                      camera->m_speed * time->delta_time;
 
       glm::quat target_rotation =
           glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
 
       local_translation.rot =
-          glm::slerp(local_translation.rot, target_rotation, 0.016f * 8.0f);
-
+          glm::slerp(local_translation.rot, target_rotation, time->delta_time * 8.0f);
     }
 
     glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
     glm::vec3 camera_target_position = local_translation.pos + camera_offset;
-    camera->m_pos = glm::mix(camera->m_pos, camera_target_position, 0.016f * 5);
+    camera->m_pos = glm::mix(camera->m_pos, camera_target_position, time->delta_time * 5);
     camera->m_orientation =
         glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
     input.update();
@@ -440,7 +455,8 @@ int main(void) {
   INFO("Create systems");
   auto move_system = ecs.register_system<SMove>();
   auto render_system = ecs.register_system<SRender>();
-  auto local_move = ecs.register_system<SLocalMove>();
+  auto local_move_system = ecs.register_system<SLocalMove>();
+  auto delat_time_system = ecs.register_system<SDeltaTime>();
 
   // state.player.speed = 10;
 
@@ -475,6 +491,7 @@ int main(void) {
   ecs.register_resource(new RInput(window));
   ecs.register_resource(new RRenderer(renderer));
   ecs.register_resource(new RScene(scene, camera, window, hierarchy));
+  ecs.register_resource(new RDeltaTime());
 
   INFO("Begin game loop");
   while (!glfwWindowShouldClose(window)) {
@@ -491,7 +508,8 @@ int main(void) {
     // state.fps_counter_index =
     //     (state.fps_counter_index + 1) % state.prev_delta_times.size();
     // Update
-    local_move->update(ecs);
+    delat_time_system->update(ecs);
+    local_move_system->update(ecs);
     move_system->update(ecs);
     render_system->update(ecs);
   }
