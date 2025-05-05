@@ -1,173 +1,23 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <print>
+#include <glm/gtc/matrix_transform.hpp>
 
-#include "engine/Camera.h"
+#include "engine/AssetLoader.h"
 #include "engine/Input.h"
 #include "engine/Renderer.h"
-#include "engine/Scene.h"
 #include "engine/core.h"
-#include "engine/ecs/component.hpp"
-#include "engine/ecs/ecs.hpp"
-#include "engine/ecs/entityarray.hpp"
-#include "engine/ecs/resource.hpp"
-#include "engine/ecs/signature.hpp"
+#include "engine/scene/Node.h"
+#include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
-
+#include "glm/ext/quaternion_common.hpp"
+#include "glm/fwd.hpp"
+#include "glm/geometric.hpp"
+#include "glm/gtc/quaternion.hpp"
 #include "gui.h"
 #include "state.h"
+#include "world_gen/map.h"
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
-
-class CMesh : public Component<CMesh> {
-    public:
-        engine::MeshHandle m_mesh;
-        CMesh(engine::MeshHandle mesh) : m_mesh(mesh) {
-        }
-        CMesh() {
-        }
-};
-
-class CVelocity : public Component<CVelocity> {
-    public:
-        glm::vec3 m_velocity;
-        CVelocity() : m_velocity(0.0f) {
-        }
-};
-
-
-class RInput : public Resource<RInput> {
-    public:
-        engine::Input m_input;
-        RInput(GLFWwindow *window) : m_input(window) {
-        }
-};
-
-class RRenderer : public Resource<RRenderer> {
-    public:
-        engine::Renderer m_renderer;
-        RRenderer(engine::Renderer renderer) : m_renderer(renderer) {
-        }
-};
-
-class RScene : public Resource<RScene> {
-    public:
-        engine::Scene m_scene;
-        engine::Camera m_camera;
-        GLFWwindow *m_window;
-        RScene(engine::Scene scene, engine::Camera camera, GLFWwindow *window)
-            : m_scene(scene), m_camera(camera), m_window(window) {
-        }
-};
-
-class SRenderer : public System<SRenderer> {
-    public:
-        void update(ECS& ecs) {
-            auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
-            auto scene = ecs.get_resource<RScene>();
-            auto camera = scene->m_camera;
-            INFO("Camera position: {}", camera.m_pos.x);
-            auto window = &scene->m_window;
-            int height;
-            int width;
-            glfwPollEvents();
-            glfwGetFramebufferSize(*window, &width, &height);
-            if (width == 0 || height == 0) {
-                return;
-            }
-
-
-            glfwPollEvents();
-            scene->m_scene.compute_global_node_transforms();
-            renderer->clear();
-            renderer->begin_pass(camera, 1920, 1080);
-            Entity e;
-            Iterator it;
-            INFO("Drawing meshes");
-            int a = 0;
-            while (entities.next(it, e)) {
-                INFO("Drawing mesh {}", e);
-                auto mesh = ecs.get_component<CMesh>(e);
-                INFO("IS_VALID: {}", mesh.m_mesh.is_valid());
-                renderer->draw_mesh(scene->m_scene, mesh.m_mesh);
-                a++;
-            }
-            INFO("Drawn {} meshes", a);
-            renderer->end_pass();
-            glfwSwapBuffers(*window);
-        }
-};
-
-class SMoveCamera : public System<SMoveCamera> {
-    public:
-        void update(ECS& ecs) {
-            auto input = ecs.get_resource<RInput>()->m_input;
-            auto scene = ecs.get_resource<RScene>();
-            auto camera = &scene->m_camera;
-            auto window = scene->m_window;
-
-            if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
-                bool mouse_locked = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
-                glfwSetInputMode(window, GLFW_CURSOR,
-                                 mouse_locked ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
-            }
-
-            glm::vec3 direction(0.0f);
-
-            if (input.is_key_pressed(GLFW_KEY_W)) direction.z += 1.0f;
-            if (input.is_key_pressed(GLFW_KEY_S)) direction.z -= 1.0f;
-            if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
-            if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
-            INFO("Direction: {}", direction.x);
-
-            if (glm::length(direction) > 0) {
-                if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
-                    camera->move(glm::normalize(direction), 0.016f);
-                } else {
-                    auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
-                    auto right = camera->m_orientation * glm::vec3(1, 0, 0);
-                    forward.y = 0;
-                    right.y = 0;
-
-                    forward = glm::normalize(forward);
-                    right = glm::normalize(right);
-                    auto movement = (right * direction.x + forward * direction.z) *
-                                    camera->m_speed * 0.016f;
-                    scene->m_scene.m_nodes[1].translation += movement;
-
-                    glm::quat target_rotation =
-                        glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
-
-                    scene->m_scene.m_nodes[1].rotation = glm::slerp(
-                        scene->m_scene.m_nodes[1].rotation, target_rotation, 0.016f * 8.0f);
-
-                    // camera movement
-
-                    // glm::quat camera_target_rotation = glm::quatLookAt(glm::normalize(movement),
-                    // glm::vec3(0, 1, 0)); state.camera.m_orientation =
-                    // glm::slerp(state.camera.m_orientation, camera_target_rotation, state.delta_time);
-                    // state.camera.m_pos = state.scene.m_nodes[1].translation +
-                    // state.camera.m_orientation * glm::vec3(0,0,10);
-                    glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                    glm::vec3 camera_target_position =
-                        scene->m_scene.m_nodes[1].translation + camera_offset;
-                    camera->m_pos =
-                        glm::mix(camera->m_pos, camera_target_position, 0.016f * 5);
-                    camera->m_orientation =
-                        glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
-                }
-            }
-            // mouse input
-
-            if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
-                glm::vec2 mouse_delta = input.get_mouse_position_delta();
-                camera->rotate(-mouse_delta.x * 0.001f, -mouse_delta.y * 0.001f);
-            }
-            input.update();
-        }
-};
 
 template <class... Args>
 void fatal(std::format_string<Args...> fmt, Args &&...args) {
@@ -184,7 +34,38 @@ static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-void main_necs(void) {
+static void gen_world(State &state, engine::NodeHandle &root) {
+    Map map(100, 15, 5, 10, 1337);
+
+    engine::NodeHandle map_node = state.hierarchy.add_node(
+        {
+            .name = "Map",
+            .rotation = glm::quat(1, 0, 0, 0),
+            .scale = glm::vec3(5, 1, 5),
+        },
+        root);
+
+    engine::MeshHandle cube_mesh = state.scene.mesh_by_name("Cube");
+
+    for (size_t i = 0; i < map.grid.size(); ++i) {
+        for (size_t j = 0; j < map.grid[i].size(); ++j) {
+            if (map.grid[i][j] != -1) {
+                state.hierarchy.add_node(
+                    {
+                        .kind = engine::Node::Kind::mesh,
+                        .name = std::format("cube_{}_{}", i, j),
+                        .rotation = glm::quat(1, 0, 0, 0),
+                        .translation = glm::vec3(map.grid.size() * -0.5 + (f32)i, -2.5, map.grid[i].size() * -0.5 + (f32)j),
+                        .scale = glm::vec3(1),
+                        .mesh_index = cube_mesh.get_value(),
+                    },
+                    map_node);
+            }
+        }
+    }
+}
+
+int main(void) {
     if (!glfwInit()) {
         fatal("Failed to initiliaze glfw");
     }
@@ -200,6 +81,7 @@ void main_necs(void) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
     glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_SAMPLES, 8);
 #ifndef NDEBUG
     glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
 #else
@@ -216,15 +98,33 @@ void main_necs(void) {
     glfwMakeContextCurrent(window);
 
     engine::Input input(window);
-    State state;
+    State state = {};
     state.camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
     state.mouse_locked = true;
     state.sensitivity = 0.001f;
 
-    engine::Renderer renderer((engine::Renderer::LoadProc)glfwGetProcAddress);
-    state.scene.load_asset_file("scene_data.bin");
-    state.scene.compute_global_node_transforms();
-    renderer.make_resources_for_scene(state.scene);
+    state.renderer.init((engine::Renderer::LoadProc)glfwGetProcAddress);
+    {
+        auto data = engine::loader::load_asset_file("scene_data.bin");
+        state.scene.init(data);
+        state.renderer.make_resources_for_scene(data);
+    }
+
+    engine::NodeHandle root_node = state.hierarchy.add_root_node({
+        .name = "Game",
+        .rotation = glm::quat(1, 0, 0, 0),
+        .scale = glm::vec3(1),
+    });
+
+    gen_world(state, root_node);
+
+    auto player_prefab = state.scene.prefab_by_name("Player");
+    engine::NodeHandle player =
+        state.hierarchy.instantiate_prefab(state.scene, player_prefab, engine::NodeHandle(0));
+
+    auto enemy_prefab = state.scene.prefab_by_name("Enemy");
+    engine::NodeHandle enemy =
+        state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -237,22 +137,17 @@ void main_necs(void) {
 
     gui::init(window, content_scale);
 
-    engine::MeshHandle helmet_mesh = state.scene.mesh_from_name("SciFiHelmet");
-    engine::MeshHandle sponza_mesh = state.scene.mesh_from_name("Sponza");
+    state.player.position = glm::vec3(0.0f);
+    state.player.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    // Should probably always be 1
+    state.player.scale = glm::vec3(1.0f);
+    state.player.speed = 10;
 
-    // Create ECS
-    ECS ecs;
-    ecs.register_component<CMesh>();
-    ecs.register_component<CVelocity>();
-
-    Signature renderer_signature = 0;
-    renderer_signature = set_signature(renderer_signature, CMesh::get_id());
-    ecs.set_system_signature<SRenderer>(renderer_signature);
-
-    Entity e1 = ecs.create_entity();
-    ecs.add_component<CMesh>(e1, CMesh(helmet_mesh));
-    Entity e2 = ecs.create_entity();
-    ecs.add_component<CMesh>(e2, CMesh(sponza_mesh));
+    // Init enemy
+    state.enemy.position = glm::vec3(20, 0, 20);
+    state.enemy.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    state.enemy.scale = glm::vec3(1.0f);
+    state.enemy.speed = 3;
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
@@ -265,6 +160,11 @@ void main_necs(void) {
         if (width == 0 || height == 0) {
             continue;
         }
+        state.fb_width = width;
+        state.fb_height = height;
+
+        state.prev_delta_times[state.fps_counter_index] = state.delta_time;
+        state.fps_counter_index = (state.fps_counter_index + 1) % state.prev_delta_times.size();
 
         // keyboard input
         if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
@@ -291,31 +191,36 @@ void main_necs(void) {
 
                 forward = glm::normalize(forward);
                 right = glm::normalize(right);
-                auto movement = (right * direction.x + forward * direction.z) *
-                                state.camera.m_speed * state.delta_time;
-                state.scene.m_nodes[1].translation += movement;
+                auto movement = (right * direction.x + forward * direction.z) * state.player.speed *
+                                state.delta_time;
+                state.player.position += movement;
 
                 glm::quat target_rotation =
                     glm::quatLookAt(glm::normalize(movement), glm::vec3(0, 1, 0));
 
-                state.scene.m_nodes[1].rotation = glm::slerp(
-                    state.scene.m_nodes[1].rotation, target_rotation, state.delta_time * 8.0f);
+                state.player.rotation =
+                    glm::slerp(state.player.rotation, target_rotation, state.delta_time * 8.0f);
 
                 // camera movement
-
-                // glm::quat camera_target_rotation = glm::quatLookAt(glm::normalize(movement),
-                // glm::vec3(0, 1, 0)); state.camera.m_orientation =
-                // glm::slerp(state.camera.m_orientation, camera_target_rotation, state.delta_time);
-                // state.camera.m_pos = state.scene.m_nodes[1].translation +
-                // state.camera.m_orientation * glm::vec3(0,0,10);
                 glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-                glm::vec3 camera_target_position =
-                    state.scene.m_nodes[1].translation + camera_offset;
+                glm::vec3 camera_target_position = state.player.position + camera_offset;
                 state.camera.m_pos =
                     glm::mix(state.camera.m_pos, camera_target_position, state.delta_time * 5);
                 state.camera.m_orientation =
                     glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
             }
+        }
+
+        // ememy movement
+        {
+            glm::vec3 enemy_move = state.player.position - state.enemy.position;
+            enemy_move.y = 0;
+            if (enemy_move.x != 0 || enemy_move.z != 0) enemy_move = glm::normalize(enemy_move);
+
+            glm::quat target_rotation = glm::quatLookAt(enemy_move, glm::vec3(0, 1, 0));
+            state.enemy.position += enemy_move * state.enemy.speed * state.delta_time;
+            state.enemy.rotation =
+                glm::slerp(state.enemy.rotation, target_rotation, state.delta_time * 8.0f);
         }
 
         // mouse input
@@ -326,17 +231,22 @@ void main_necs(void) {
         }
 
         glfwPollEvents();
-        state.scene.compute_global_node_transforms();
         gui::build(state);
 
+        // Not the formal way to set a node transform. Just temporary
+        state.hierarchy.m_nodes[player.get_value()].translation = state.player.position;
+        state.hierarchy.m_nodes[player.get_value()].rotation = state.player.rotation;
+        state.hierarchy.m_nodes[player.get_value()].scale = state.player.scale;
+
+        state.hierarchy.m_nodes[enemy.get_value()].translation = state.enemy.position;
+        state.hierarchy.m_nodes[enemy.get_value()].rotation = state.enemy.rotation;
+        state.hierarchy.m_nodes[enemy.get_value()].scale = state.enemy.scale;
+
         // Draw
-        renderer.clear();
-        renderer.begin_pass(state.camera, width, height);
-        renderer.draw_mesh(state.scene, helmet_mesh);
-        renderer.draw_mesh(state.scene, helmet_mesh,
-                           glm::translate(glm::mat4(1.0f), glm::vec3(0, 2, 0)));
-        renderer.draw_mesh(state.scene, sponza_mesh);
-        renderer.end_pass();
+        state.renderer.clear();
+        state.renderer.begin_pass(state.scene, state.camera, width, height);
+        state.renderer.draw_hierarchy(state.scene, state.hierarchy);
+        state.renderer.end_pass();
 
         gui::render();
 
@@ -344,86 +254,4 @@ void main_necs(void) {
 
         input.update();
     }
-}
-
-void main_ecs(void) {
-    if (!glfwInit()) {
-        fatal("Failed to initiliaze glfw");
-    }
-    INFO("Initialized GLFW");
-    glfwSetErrorCallback(error_callback);
-
-    f32 content_x_scale;
-    f32 content_y_scale;
-    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &content_x_scale, &content_y_scale);
-    INFO("Monitor content scale is ({}, {})", content_x_scale, content_y_scale);
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-    glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-#ifndef NDEBUG
-    glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
-#else
-    glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
-#endif
-
-    f32 content_scale = std::max(content_x_scale, content_y_scale);
-    auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale, "Skeletal Animation",
-                                   nullptr, nullptr);
-    if (!window) {
-        fatal("Failed to create glfw window");
-    }
-
-    glfwMakeContextCurrent(window);
-
-    engine::Input input(window);
-    engine::Camera camera;
-    camera.init(glm::vec3(0.0f, 0.0f, 3.0f), 10.0f);
-    engine::Scene scene;
-    scene.load_asset_file("scene_data.bin");
-    scene.compute_global_node_transforms();
-
-    engine::Renderer renderer((engine::Renderer::LoadProc)glfwGetProcAddress);
-    renderer.make_resources_for_scene(scene);
-
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    int width;
-    int height;
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    engine::MeshHandle helmet_mesh = scene.mesh_from_name("SciFiHelmet");
-    engine::MeshHandle sponza_mesh = scene.mesh_from_name("Sponza");
-
-    // Create ECS
-    ECS ecs;
-    ecs.register_component<CMesh>();
-    ecs.register_component<CVelocity>();
-
-    ecs.register_resource(new RInput(window));
-    ecs.register_resource(new RRenderer(renderer));
-    ecs.register_resource(new RScene(scene, camera, window));
-    auto render_system = ecs.register_system<SRenderer>();
-    auto move_camera_system = ecs.register_system<SMoveCamera>();
-    Signature renderer_signature = 0;
-    renderer_signature = set_signature(renderer_signature, CMesh::get_id());
-    ecs.set_system_signature<SRenderer>(renderer_signature);
-
-    Entity e1 = ecs.create_entity();
-    ecs.add_component<CMesh>(e1, CMesh(helmet_mesh));
-    Entity e2 = ecs.create_entity();
-    ecs.add_component<CMesh>(e2, CMesh(sponza_mesh));
-
-    while (!glfwWindowShouldClose(window)) {
-        // Update
-        move_camera_system->update(ecs);
-        render_system->update(ecs);
-    }
-}
-
-int main(int argc, char **argv) {
-    main_ecs();
 }
