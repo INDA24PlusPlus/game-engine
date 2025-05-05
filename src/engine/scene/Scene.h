@@ -79,6 +79,7 @@ struct Material {
     f32 occlusion_strength;
     u32 emission_map;
     glm::vec3 emission_factor;
+    bool is_double_sided;
 };
 
 

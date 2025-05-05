@@ -128,12 +128,10 @@ void Pipeline::bind() {
     glBindVertexArray(m_vao);
 }
 
-void Pipeline::add_vertex_buffer(std::span<const VertexAttributeDescriptor> attributes, u32 stride, std::span<u8> vertex_data) {
-    glCreateBuffers(1, &m_vbo);
-    glNamedBufferStorage(m_vbo, vertex_data.size(), vertex_data.data(), 0);
-    glVertexArrayVertexBuffer(m_vao, 0, m_vbo, 0, stride);
 
-
+void Pipeline::add_vertex_buffer_from_buffer(std::span<const VertexAttributeDescriptor> attributes, u32 stride, u32 buffer) {
+    m_vbo = buffer;
+    glVertexArrayVertexBuffer(m_vao, 0, buffer, 0, stride);
     for (size_t i = 0; i < attributes.size(); ++i) {
         const auto& attrib = attributes[i];
         u32 gl_type;
@@ -149,6 +147,14 @@ void Pipeline::add_vertex_buffer(std::span<const VertexAttributeDescriptor> attr
         glVertexArrayAttribBinding(m_vao, i, 0);
         glEnableVertexArrayAttrib(m_vao, i);
     }
+}
+
+void Pipeline::add_vertex_buffer(std::span<const VertexAttributeDescriptor> attributes, u32 stride, std::span<u8> vertex_data) {
+    u32 buffer;
+    glCreateBuffers(1, &buffer);
+    glNamedBufferStorage(buffer, vertex_data.size(), vertex_data.data(), 0);
+
+    add_vertex_buffer_from_buffer(attributes, stride, buffer);
 }
 
 

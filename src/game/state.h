@@ -29,4 +29,5 @@ struct State {
 
     Player player;
     Enemy enemy;
+    Enemy enemy2;
 };

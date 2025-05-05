@@ -11,6 +11,7 @@ struct Enemy {
     glm::vec3 scale;
     float health;
     float speed;
+    float hover_time;
 
     float cooldown;
 
