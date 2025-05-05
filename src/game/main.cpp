@@ -125,6 +125,8 @@ int main(void) {
     auto enemy_prefab = state.scene.prefab_by_name("Enemy");
     engine::NodeHandle enemy =
         state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
+    engine::NodeHandle enemy2 =
+        state.hierarchy.instantiate_prefab(state.scene, enemy_prefab, engine::NodeHandle(0));
 
     glfwSetWindowUserPointer(window, &state);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -140,6 +142,11 @@ int main(void) {
     // init camera orientation
     state.camera.m_orientation =
         glm::quatLookAt(glm::normalize(glm::vec3(-3, -1, -3)), glm::vec3(0, 1, 0));
+
+    // init enemy2
+    state.enemy2.position = -state.enemy2.position;
+    state.enemy2.speed = 4;
+    state.enemy2.hover_time = 1;
 
     while (!glfwWindowShouldClose(window)) {
         state.prev_time = state.curr_time;
@@ -207,6 +214,7 @@ int main(void) {
 
         // ememy update
         state.enemy.update(state);
+        state.enemy2.update(state);
 
         // mouse input
         if (state.mouse_locked) {
@@ -225,7 +233,11 @@ int main(void) {
 
         state.hierarchy.m_nodes[enemy.get_value()].translation = state.enemy.position;
         state.hierarchy.m_nodes[enemy.get_value()].rotation = state.enemy.rotation;
-        auto& scale = state.hierarchy.m_nodes[enemy.get_value()].scale;
+        state.hierarchy.m_nodes[player.get_value()].scale = state.enemy.scale;
+
+        state.hierarchy.m_nodes[enemy2.get_value()].translation = state.enemy2.position;
+        state.hierarchy.m_nodes[enemy2.get_value()].rotation = state.enemy2.rotation;
+        state.hierarchy.m_nodes[enemy2.get_value()].scale = state.enemy2.scale;
 
         // Draw
         state.renderer.clear();
