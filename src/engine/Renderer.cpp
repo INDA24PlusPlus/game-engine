@@ -141,6 +141,7 @@ void Renderer::begin_pass(const Scene &scene, const Camera &camera, u32 width, u
 
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
 
     f32 aspect_ratio = (f32)width / (f32)height;
     UBOMatrices matrices;
@@ -299,7 +300,7 @@ void Renderer::create_rect_pass() {
                                   .count = 2,
                                   .offset = offsetof(RectVertex, pos)},
         VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
-                                  .count = 3,
+                                  .count = 4,
                                   .offset = offsetof(RectVertex, color)}};
     m_rect_pass.pipeline.add_vertex_buffer_from_buffer(attribs, sizeof(RectVertex),
                                                        m_rect_pass.vertex_buffer.m_handle);
@@ -310,25 +311,29 @@ void Renderer::create_rect_pass() {
 
 void Renderer::begin_rect_pass() {
     glDisable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     m_rect_pass.pipeline.bind();
     m_rect_pass.vertex_buffer.new_frame();
 }
 
-void Renderer::draw_rect(const Rect &rect, const glm::vec3 &color) {
+void Renderer::draw_rect(const Rect &rect, const glm::vec4 &color) {
     if (m_rect_pass.current_count + 1 > m_rect_pass.capacity) {
         ERROR("Cannot draw anymore rectangles. Rectangle pass vertex buffer is full!");
         return;
     }
     std::array<RectVertex, 6> vertices = {
-        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z}},
-        RectVertex{.pos = {rect.x + rect.width, rect.y}, .color = {color.x, color.y, color.z}},
+        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x + rect.width, rect.y},
+                   .color = {color.x, color.y, color.z, color.w}},
         RectVertex{.pos = {rect.x + rect.width, rect.y + rect.height},
-                   .color = {color.x, color.y, color.z}},
+                   .color = {color.x, color.y, color.z, color.w}},
 
-        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z}},
+        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z, color.w}},
         RectVertex{.pos = {rect.x + rect.width, rect.y + rect.height},
-                   .color = {color.x, color.y, color.z}},
-        RectVertex{.pos = {rect.x, rect.y + rect.height}, .color = {color.x, color.y, color.z}},
+                   .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x, rect.y + rect.height},
+                   .color = {color.x, color.y, color.z, color.w}},
     };
     m_rect_pass.vertex_buffer.write(
         std::span((u8 *)vertices.data(), vertices.size() * sizeof(RectVertex)));

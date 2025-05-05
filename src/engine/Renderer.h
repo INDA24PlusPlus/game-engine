@@ -40,7 +40,7 @@ class Renderer {
 
 
     void begin_rect_pass();
-    void draw_rect(const Rect &rect, const glm::vec3& color);
+    void draw_rect(const Rect &rect, const glm::vec4& color);
     void end_rect_pass(u32 fb_width, u32 fb_height);
 
    private:
@@ -84,7 +84,7 @@ class Renderer {
 
     struct RectVertex {
         f32 pos[2];
-        f32 color[3];
+        f32 color[4];
     };
 
     struct Pass {

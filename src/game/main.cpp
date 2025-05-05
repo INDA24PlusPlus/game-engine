@@ -247,7 +247,7 @@ int main(void) {
         state.renderer.end_pass();
 
         state.renderer.begin_rect_pass();
-        state.renderer.draw_rect({ .x = 100, .y = 100, .width = 1000, .height = 1000}, glm::vec3(1));
+        state.renderer.draw_rect({ .x = 100, .y = 100, .width = 1000, .height = 1000}, glm::vec4(1.f, 1.f, 1.f, 0.5f));
         state.renderer.end_rect_pass(state.fb_width, state.fb_height);
 
         gui::render();
