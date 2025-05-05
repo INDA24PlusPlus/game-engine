@@ -54,5 +54,3 @@ class FIFO {
             size = 0;
         }
 };
-
-void assert(bool condition, const char* message);

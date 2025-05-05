@@ -14,6 +14,15 @@ set(SOURCE_FILES
     src/engine/utils/logging.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
+    src/engine/ecs/ecs.cpp
+    src/engine/ecs/entity.cpp
+    src/engine/ecs/component.cpp
+    src/engine/ecs/system.cpp
+    src/engine/ecs/entityarray.cpp
+    src/engine/ecs/utils.cpp
+    src/engine/ecs/resource.cpp
+    src/engine/ecs/signature.cpp
+    src/engine/ecs/systemmanager.cpp
     src/engine/AssetLoader.cpp
     src/engine/Input.cpp
     src/engine/scene/Scene.cpp

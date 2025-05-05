@@ -1,9 +1,8 @@
 #pragma once
 
+#include "engine/utils/logging.h"
 #include "types.h"
 #include "entity.hpp"
-
-const u32 MAX_COMPONENTS = 32;
 
 using ComponentID = u32;
 
@@ -19,6 +18,9 @@ class Component : public ComponentBase {
     public:
         static u32 get_id() {
             static u32 id = id_counter++;
+            if (id >= MAX_COMPONENTS) {
+                ERROR("Component ID exceeds maximum components");
+            }
             return id;
         }
 
@@ -37,9 +39,9 @@ class IComponentArray {
 template <typename T>
 class ComponentArray {
     public:
-        ComponentArray() {
-            for (Entity entity = 0; entity < MAX_ENTITIES; entity++) {
-                data[entity] = T();
+        ComponentArray(): data() {
+            for (u32 i = 0; i < MAX_ENTITIES; i++) {
+                data[i] = T();
             }
         }
 

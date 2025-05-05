@@ -1,9 +1,11 @@
 #pragma once
 
+#include "engine/ecs/resource.hpp"
 #include "types.h"
 #include "entity.hpp"
 #include "component.hpp"
-#include "system.hpp"
+#include "systemmanager.hpp"
+#include <cstdio>
 
 class ECS {
     public:
@@ -50,8 +52,19 @@ class ECS {
         void set_system_signature(Signature signature) {
             system_manager->set_signature<T>(signature);
         }
+
+        template <typename T>
+        T* register_resource(T* resource) {
+            return resource_manager->register_resource(resource);
+        }
+
+        template <typename T>
+        T* get_resource() {
+            return resource_manager->get_resource<T>();
+        }
     private:
         EntityManager *entity_manager;
         ComponentManager *component_manager;
         SystemManager *system_manager;
+        ResourceManager *resource_manager;
 };
