@@ -1,5 +1,8 @@
 #include "engine/Camera.h"
+#include <glad/glad.h>
+#include <GL/gl.h>
 #include <GLFW/glfw3.h>
+#include <cstdio>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 
@@ -16,11 +19,12 @@
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
+#include "glm/detail/qualifier.hpp"
 #include "glm/ext/quaternion_common.hpp"
+#include "glm/ext/quaternion_geometric.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include "gui.h"
 #include "state.h"
 #include "world_gen/map.h"
 
@@ -106,8 +110,10 @@ public:
     while (entities->next(it, e)) {
       CTranslation &translation = ecs.get_component<CTranslation>(e);
       CVelocity &vel = ecs.get_component<CVelocity>(e);
-      translation.pos += vel.vel;
-      vel.vel = glm::vec3(0);
+      if (glm::length(vel.vel) > 0) {
+        translation.pos += vel.vel;
+        vel.vel = glm::vec3(0);
+      }
     }
   }
 };
@@ -230,8 +236,6 @@ public:
     renderer->draw_hierarchy(scene->m_scene, hierarchy);
     renderer->end_pass();
 
-    gui::render();
-
     glfwSwapBuffers(scene->m_window);
   }
 };
@@ -239,7 +243,8 @@ public:
 class SLocalMove : public System<SLocalMove> {
 public:
   SLocalMove() {
-    queries[0] = Query(CVelocity::get_id(), CLocal::get_id());
+    queries[0] =
+        Query(CTranslation::get_id(), CVelocity::get_id(), CLocal::get_id());
     query_count = 1;
   }
 
@@ -249,8 +254,8 @@ public:
     auto camera = &scene->m_camera;
     auto window = scene->m_window;
     auto local_player = get_query(0)->get_entities()->first();
-    auto local_vel = ecs.get_component<CVelocity>(*local_player);
-    auto local_translation = ecs.get_component<CTranslation>(*local_player);
+    CVelocity& local_vel = ecs.get_component<CVelocity>(*local_player);
+    CTranslation& local_translation = ecs.get_component<CTranslation>(*local_player);
 
     if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
       bool mouse_locked =
@@ -272,35 +277,31 @@ public:
       direction.x += 1.0f;
 
     if (glm::length(direction) > 0) {
-      if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
-        camera->move(glm::normalize(direction), 0.016f);
-      } else {
-        auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
-        auto right = camera->m_orientation * glm::vec3(1, 0, 0);
-        forward.y = 0;
-        right.y = 0;
+      auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
+      auto right = camera->m_orientation * glm::vec3(1, 0, 0);
+      forward.y = 0;
+      right.y = 0;
 
-        forward = glm::normalize(forward);
-        right = glm::normalize(right);
+      forward = glm::normalize(forward);
+      right = glm::normalize(right);
 
-        local_vel.vel = (right * direction.x + forward * direction.z) *
-                        camera->m_speed * 0.016f;
+      local_vel.vel = (right * direction.x + forward * direction.z) *
+                      camera->m_speed * 0.016f;
 
-        glm::quat target_rotation =
-            glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
+      glm::quat target_rotation =
+          glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
 
-        local_translation.rot =
-            glm::slerp(local_translation.rot, target_rotation, 0.016f * 8.0f);
+      local_translation.rot =
+          glm::slerp(local_translation.rot, target_rotation, 0.016f * 8.0f);
 
-        glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-        glm::vec3 camera_target_position =
-            local_translation.pos + camera_offset;
-        camera->m_pos =
-            glm::mix(camera->m_pos, camera_target_position, 0.016f * 5);
-        camera->m_orientation =
-            glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
-      }
     }
+
+    glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
+    glm::vec3 camera_target_position = local_translation.pos + camera_offset;
+    camera->m_pos = glm::mix(camera->m_pos, camera_target_position, 0.016f * 5);
+    camera->m_orientation =
+        glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
+    input.update();
   }
 };
 
@@ -392,12 +393,6 @@ int main(void) {
 
   glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-  int width;
-  int height;
-  glfwGetFramebufferSize(window, &width, &height);
-  // glViewport(0, 0, width, height);
-  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
   // Create ECS
   ECS ecs = ECS();
 
@@ -424,11 +419,13 @@ int main(void) {
     renderer.make_resources_for_scene(data);
   }
 
-  gen_world(hierarchy, scene, root_node);
+  int width;
+  int height;
+  glfwGetFramebufferSize(window, &width, &height);
+  glViewport(0, 0, width, height);
+  glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-  ecs.register_resource(new RInput(window));
-  ecs.register_resource(new RRenderer(renderer));
-  ecs.register_resource(new RScene(scene, camera, window, hierarchy));
+  gen_world(hierarchy, scene, root_node);
 
   // Register componets
   INFO("Create componets");
@@ -437,12 +434,13 @@ int main(void) {
   ecs.register_component<CVelocity>();
   ecs.register_component<CEnemy>();
   ecs.register_component<CName>();
+  ecs.register_component<CMesh>();
 
   // Register systems
   INFO("Create systems");
   auto move_system = ecs.register_system<SMove>();
   auto render_system = ecs.register_system<SRender>();
-  auto move_camera_system = ecs.register_system<SLocalMove>();
+  auto local_move = ecs.register_system<SLocalMove>();
 
   // state.player.speed = 10;
 
@@ -457,13 +455,26 @@ int main(void) {
   ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
   ecs.add_component<CName>(player, CName{.name = "Player"});
 
-  DEBUG("Create player mesh");
   auto player_prefab = scene.prefab_by_name("Player");
   engine::NodeHandle player_node =
       hierarchy.instantiate_prefab(scene, player_prefab, engine::NodeHandle(0));
 
-  DEBUG("Add mesh component");
   ecs.add_component<CMesh>(player, CMesh(player_node));
+
+  // Entity sponza = ecs.create_entity();
+  // ecs.add_component(sponza,
+  //                   CTranslation{.pos = glm::vec3(0.0f),
+  //                                .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+  //                                .scale = glm::vec3(1.0f)});
+  // auto sponza_prefab = scene.prefab_by_name("Sponza");
+  // engine::NodeHandle sponza_node =
+  //     hierarchy.instantiate_prefab(scene, sponza_prefab,
+  //     engine::NodeHandle(0));
+  // ecs.add_component(sponza, CMesh(sponza_node));
+
+  ecs.register_resource(new RInput(window));
+  ecs.register_resource(new RRenderer(renderer));
+  ecs.register_resource(new RScene(scene, camera, window, hierarchy));
 
   INFO("Begin game loop");
   while (!glfwWindowShouldClose(window)) {
@@ -480,8 +491,8 @@ int main(void) {
     // state.fps_counter_index =
     //     (state.fps_counter_index + 1) % state.prev_delta_times.size();
     // Update
+    local_move->update(ecs);
     move_system->update(ecs);
-    move_camera_system->update(ecs);
     render_system->update(ecs);
   }
 
