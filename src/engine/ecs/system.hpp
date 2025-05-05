@@ -16,7 +16,7 @@ class SystemBase {
         Query queries[4];
         u32 query_count;
 
-        SystemBase() {
+        SystemBase() : query_count{0} {
         }
 };
 

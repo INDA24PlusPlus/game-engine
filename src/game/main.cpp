@@ -1,8 +1,7 @@
 #include "engine/Camera.h"
-#include <GL/gl.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <cstdio>
-#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 
