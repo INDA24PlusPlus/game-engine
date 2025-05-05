@@ -13,6 +13,8 @@ class Camera {
 public:
     glm::vec3 m_pos;
     glm::quat m_orientation;
+    f32 m_pitch, m_yaw;
+
     f32 m_speed;
 
     void init(glm::vec3 pos, f32 speed);

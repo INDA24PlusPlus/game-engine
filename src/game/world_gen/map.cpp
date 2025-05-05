@@ -2,6 +2,8 @@
 #include <iostream>
 #include <cmath>
 
+#include "definitions.h"
+
 
 bool Map::check_room(ll x1, ll y1, ll x2, ll y2) {
     if(x1 < 0 || y1 < 0 || x2 >= grid.size() || y2 >= grid[0].size()) return false;
