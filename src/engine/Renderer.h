@@ -5,6 +5,7 @@
 
 #include "Camera.h"
 #include "core.h"
+#include "graphics/GPURingBuffer.h"
 #include "graphics/Image.h"
 #include "graphics/Pipeline.h"
 #include "graphics/Sampler.h"
@@ -15,14 +16,20 @@ namespace engine {
 
 class Renderer {
    public:
-    friend class Scene;
+    struct Rect {
+        f32 x;
+        f32 y;
+        f32 width;
+        f32 height;
+    };
+
     typedef void *(*LoadProc)(const char *name);
 
     void init(LoadProc load_proc);
     void make_resources_for_scene(const loader::AssetFileData &scene);
 
     // Will go away.
-    void set_texture_filtering_level(Scene& scene, f32 level);
+    void set_texture_filtering_level(Scene &scene, f32 level);
     f32 get_max_texture_filtering_level() const;
 
     void clear();
@@ -31,8 +38,10 @@ class Renderer {
     void draw_mesh(u32 mesh_handle, const glm::mat4 &transform);
     void draw_hierarchy(const Scene &scene, const NodeHierarchy &hierarchy);
 
-    // Temp
-    void update_light_positions(u32 index, glm::vec4 pos);
+
+    void begin_rect_pass();
+    void draw_rect(const Rect &rect, const glm::vec3& color);
+    void end_rect_pass(u32 fb_width, u32 fb_height);
 
    private:
     struct GeneratedImages {
@@ -45,6 +54,7 @@ class Renderer {
     u32 load_shader(const char *path, u32 shader_type);
     void create_textures(const Scene &scene);
     void create_ubos();
+    void create_rect_pass();
 
     // Things we might want to move to a offline baking process.
     void generate_offline_content();
@@ -72,11 +82,23 @@ class Renderer {
     f32 m_max_texture_filtering;
     Sampler m_default_sampler;
 
+    struct RectVertex {
+        f32 pos[2];
+        f32 color[3];
+    };
+
     struct Pass {
         const Scene *scene;
         glm::mat4 projection_matrix;
         glm::mat4 view_matrix;
         glm::vec3 camera_pos;
+    };
+
+    struct RectPass {
+        Pipeline pipeline;
+        GPURingBuffer vertex_buffer;
+        u32 capacity;
+        u32 current_count;
     };
 
     struct Skybox {
@@ -100,6 +122,7 @@ class Renderer {
     };
 
     Pass m_curr_pass;
+    RectPass m_rect_pass;
 
     u32 m_ubo_material_handle;
     u32 m_ubo_matrices_handle;

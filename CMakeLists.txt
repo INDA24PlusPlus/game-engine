@@ -24,6 +24,7 @@ set(SOURCE_FILES
     src/engine/graphics/Pipeline.cpp
     src/engine/graphics/Image.cpp
     src/engine/graphics/Sampler.cpp
+    src/engine/graphics/GPURingBuffer.cpp
     vendor/glad/src/glad.c
 )
 

@@ -229,9 +229,14 @@ int main(void) {
 
         // Draw
         state.renderer.clear();
+
         state.renderer.begin_pass(state.scene, state.camera, width, height);
         state.renderer.draw_hierarchy(state.scene, state.hierarchy);
         state.renderer.end_pass();
+
+        state.renderer.begin_rect_pass();
+        state.renderer.draw_rect({ .x = 100, .y = 100, .width = 1000, .height = 1000}, glm::vec3(1));
+        state.renderer.end_rect_pass(state.fb_width, state.fb_height);
 
         gui::render();
 
