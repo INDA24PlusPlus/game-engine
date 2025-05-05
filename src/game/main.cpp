@@ -154,6 +154,10 @@ public:
     renderer->draw_hierarchy(scene->m_scene, hierarchy);
     renderer->end_pass();
 
+    renderer->begin_rect_pass();
+    renderer->draw_rect({ .x = 100, .y = 100, .width = 100, .height = 100}, glm::vec4(1.0, 0.0, 0.0, 0.4));
+    renderer->end_rect_pass(width, height);
+
     glfwSwapBuffers(scene->m_window);
   }
 };

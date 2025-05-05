@@ -15,6 +15,10 @@
         {
             "name": "Cube",
             "path": "assets/cube.glb"
+        },
+        {
+            "name": "Ghost",
+            "path": "assets/ghost.glb"
         }
     ],
     "prefabs": [
