@@ -5,6 +5,7 @@
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "game/player.h"
+#include "game/enemy.h"
 
 
 struct State {
@@ -27,5 +28,5 @@ struct State {
     f32 sensitivity;
 
     Player player;
-    Player enemy;  // well maybe the struct should be something else
+    Enemy enemy;
 };

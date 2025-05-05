@@ -2,7 +2,7 @@
     "name": "Enemy",
     "nodes": [
         {
-            "mesh": "Helmet",
+            "mesh": "Ghost",
             "name": "Enemy",
             "rotation": [
                 0.0,

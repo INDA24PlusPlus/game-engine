@@ -136,18 +136,6 @@ int main(void) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     gui::init(window, content_scale);
-
-    state.player.position = glm::vec3(0.0f);
-    state.player.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    // Should probably always be 1
-    state.player.scale = glm::vec3(1.0f);
-    state.player.speed = 10;
-
-    // Init enemy
-    state.enemy.position = glm::vec3(20, 0, 20);
-    state.enemy.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-    state.enemy.scale = glm::vec3(1.0f);
-    state.enemy.speed = 3;
     
     // init camera orientation
     state.camera.m_orientation =
@@ -184,7 +172,6 @@ int main(void) {
         if (input.is_key_pressed(GLFW_KEY_A)) direction.x -= 1.0f;
         if (input.is_key_pressed(GLFW_KEY_D)) direction.x += 1.0f;
 
-        
         if (input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
             if (glm::length(direction) > 0) {
                 state.camera.move(glm::normalize(direction), state.delta_time);
@@ -218,17 +205,8 @@ int main(void) {
             
         }
 
-        // ememy movement
-        {
-            glm::vec3 enemy_move = state.player.position - state.enemy.position;
-            enemy_move.y = 0;
-            if (enemy_move.x != 0 || enemy_move.z != 0) enemy_move = glm::normalize(enemy_move);
-
-            glm::quat target_rotation = glm::quatLookAt(enemy_move, glm::vec3(0, 1, 0));
-            state.enemy.position += enemy_move * state.enemy.speed * state.delta_time;
-            state.enemy.rotation =
-                glm::slerp(state.enemy.rotation, target_rotation, state.delta_time * 8.0f);
-        }
+        // ememy update
+        state.enemy.update(state);
 
         // mouse input
         if (state.mouse_locked) {
@@ -247,7 +225,7 @@ int main(void) {
 
         state.hierarchy.m_nodes[enemy.get_value()].translation = state.enemy.position;
         state.hierarchy.m_nodes[enemy.get_value()].rotation = state.enemy.rotation;
-        state.hierarchy.m_nodes[enemy.get_value()].scale = state.enemy.scale;
+        auto& scale = state.hierarchy.m_nodes[enemy.get_value()].scale;
 
         // Draw
         state.renderer.clear();

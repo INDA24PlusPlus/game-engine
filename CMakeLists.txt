@@ -10,6 +10,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SOURCE_FILES
     src/game/main.cpp
     src/game/gui.cpp
+    src/game/player.cpp
+    src/game/enemy.cpp
     src/game/world_gen/map.cpp
     src/engine/utils/logging.cpp
     src/engine/Renderer.cpp
