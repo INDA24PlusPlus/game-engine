@@ -10,10 +10,21 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SOURCE_FILES
     src/game/main.cpp
     src/game/gui.cpp
+    src/game/player.cpp
+    src/game/enemy.cpp
     src/game/world_gen/map.cpp
     src/engine/utils/logging.cpp
     src/engine/Renderer.cpp
     src/engine/Camera.cpp
+    src/engine/ecs/ecs.cpp
+    src/engine/ecs/entity.cpp
+    src/engine/ecs/component.cpp
+    src/engine/ecs/system.cpp
+    src/engine/ecs/entityarray.cpp
+    src/engine/ecs/utils.cpp
+    src/engine/ecs/resource.cpp
+    src/engine/ecs/signature.cpp
+    src/engine/ecs/systemmanager.cpp
     src/engine/AssetLoader.cpp
     src/engine/Input.cpp
     src/engine/scene/Scene.cpp
@@ -22,6 +33,7 @@ set(SOURCE_FILES
     src/engine/graphics/Pipeline.cpp
     src/engine/graphics/Image.cpp
     src/engine/graphics/Sampler.cpp
+    src/engine/graphics/GPURingBuffer.cpp
     vendor/glad/src/glad.c
 )
 

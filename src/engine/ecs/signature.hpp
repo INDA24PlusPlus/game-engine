@@ -1,8 +1,10 @@
 #pragma once
 
 #include "types.h"
+#include <bitset>
 
-using Signature = u32;
+const u32 MAX_COMPONENTS = 512;
+using Signature = std::bitset<MAX_COMPONENTS>;
 
 Signature set_signature(Signature signature, u32 component_id);
 
