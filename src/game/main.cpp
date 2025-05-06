@@ -87,7 +87,7 @@ public:
     }
 };
 
-class CEnemyGhost : public Component<CHealth> {
+class CEnemyGhost : public Component<CEnemyGhost> {
 public:
     float cooldown = 0.0f;
 };
