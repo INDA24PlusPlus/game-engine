@@ -29,6 +29,15 @@
 #include "settings.h"
 #include "world_gen/map.h"
 
+inline glm::vec4 from_hex(const char* h) {
+    unsigned int r, g, b, a = 255;
+    if (std::strlen(h) == 7)
+        std::sscanf(h, "#%02x%02x%02x", &r, &g, &b);
+    else
+        std::sscanf(h, "#%02x%02x%02x%02x", &r, &g, &b, &a);
+    return glm::vec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f);
+}
+
 class RDeltaTime : public Resource<RDeltaTime> {
 public:
     f32 delta_time;
@@ -146,6 +155,72 @@ public:
     }
 };
 
+class SUIRender : public System<SUIRender> {
+public:
+    SUIRender(){}
+
+    void update(ECS &ecs) {
+        auto time = ecs.get_resource<RDeltaTime>();
+        auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
+        auto scene = ecs.get_resource<RScene>();
+        auto window = scene->m_window;
+        
+        int height;
+        int width;
+        glfwGetFramebufferSize(window, &width, &height);
+
+        // DRAW HEALTH BAR
+
+        // TODO: Get nearest player instead of only player in single player
+        Entity& nearest_player = scene->m_player;
+        CHealth& nearest_player_health = ecs.get_component<CHealth>(nearest_player);
+
+        // Draw
+        renderer->begin_rect_pass();
+        {
+            float hpbar_width = 256.f;
+            float hpbar_height = 32.f;
+            float margin = 12.f;
+            float border_size = 4.f;
+
+            static float smooth_health = nearest_player_health.health;
+            static float last_health = nearest_player_health.health;
+            static float damage_timer = 0.f;     
+
+            // smooth taken damage indicator bar
+            if(nearest_player_health.health < last_health) {
+                last_health = nearest_player_health.health;
+                damage_timer = 0.2f;
+            }
+            if(damage_timer > 0.f) {
+                damage_timer -= time->delta_time;
+                if(damage_timer <= 0.f) {
+                    last_health = nearest_player_health.health;
+                }
+            }else {
+                smooth_health = glm::mix(smooth_health, nearest_player_health.health, time->delta_time * 10.f);
+            }
+
+            float max_health = 100.f; // temporary
+
+            // damage indicator bar (shows how much damage was taken)
+            float damage_bar_width = hpbar_width * (nearest_player_health.health / max_health);
+            renderer->draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = damage_bar_width, .height = hpbar_height}, from_hex("#ff0000a0"));
+
+            // hp bar
+            float bar_width = hpbar_width * (smooth_health / max_health);
+            renderer->draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = bar_width, .height = hpbar_height}, from_hex("#ff8519a0"));
+            
+            // background
+            renderer->draw_rect({ .x = (float)width - hpbar_width - margin, .y = margin, .width = hpbar_width, .height = hpbar_height}, from_hex("#000000a0"));
+
+            // border
+            renderer->draw_rect({ .x = (float)width - hpbar_width - margin - border_size, .y = margin - border_size, .width = hpbar_width + 2 * border_size, .height = hpbar_height + 2 * border_size}, from_hex("#2a2a2aff"));
+        }
+        renderer->end_rect_pass(width, height); 
+    }
+};
+
 class SRender : public System<SRender> {
 public:
     SRender() {
@@ -181,13 +256,6 @@ public:
         renderer->begin_pass(scene->m_scene, camera, width, height);
         renderer->draw_hierarchy(scene->m_scene, hierarchy);
         renderer->end_pass();
-
-        renderer->begin_rect_pass();
-        renderer->draw_rect({.x = 100, .y = 100, .width = 100, .height = 100},
-                            glm::vec4(1.0, 0.0, 0.0, 0.4));
-        renderer->end_rect_pass(width, height);
-
-        glfwSwapBuffers(scene->m_window);
     }
 };
 
@@ -464,6 +532,7 @@ int main(void) {
     INFO("Create systems");
     auto move_system = ecs.register_system<SMove>();
     auto render_system = ecs.register_system<SRender>();
+    auto ui_render_system = ecs.register_system<SUIRender>();
     auto local_move_system = ecs.register_system<SLocalMove>();
     auto delta_time_system = ecs.register_system<SDeltaTime>();
     auto enemy_ghost_system = ecs.register_system<SEnemyGhost>();
@@ -513,10 +582,13 @@ int main(void) {
     INFO("Begin game loop");
     while (!glfwWindowShouldClose(window)) {
         // Update
-        delta_time_system->update(ecs); // updates delta_time
-        local_move_system->update(ecs); // movement and camera control over client/local player
-        enemy_ghost_system->update(ecs); // enemy ghost movement and stuff
-        move_system->update(ecs);       // moves entities with velocity
-        render_system->update(ecs);     // handle rendering
+        delta_time_system->update(ecs);     // updates delta_time
+        local_move_system->update(ecs);     // movement and camera control over client/local player
+        enemy_ghost_system->update(ecs);    // enemy ghost movement and stuff
+        move_system->update(ecs);           // moves entities with velocity
+        render_system->update(ecs);         // handle rendering
+        ui_render_system->update(ecs);      // handle rendering of UI
+
+        glfwSwapBuffers(window);
     }
 }
