@@ -20,3 +20,9 @@ cd ..
 ```bash
 cd build; ninja; cd ..; ./build/game_engine
 ```
+
+### Note:
+Build with clang, NOT MinGW:
+```bash
+CMAKE . -GNinja -B build -DCMAKE_CXX_COMPILER=clang -DCMAKE_C_COMPILER=clang
+```
