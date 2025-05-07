@@ -9,6 +9,7 @@
 #include "engine/AssetLoader.h"
 #include "engine/Input.h"
 #include "engine/Renderer.h"
+#include "engine/audio/audio.h"
 #include "engine/core.h"
 #include "engine/ecs/component.hpp"
 #include "engine/ecs/ecs.hpp"
@@ -573,6 +574,7 @@ int main(void) {
     ecs.register_resource(new RRenderer(renderer));
     ecs.register_resource(new RScene(scene, camera, window, hierarchy, player));
     ecs.register_resource(new RDeltaTime(glfwGetTime()));
+    ecs.register_resource(new Audio(&ecs));
 
     INFO("Begin game loop");
     while (!glfwWindowShouldClose(window)) {
