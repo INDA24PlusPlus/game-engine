@@ -57,7 +57,13 @@ FetchContent_Declare(
     GIT_TAG 3.4
 )
 
-FetchContent_MakeAvailable(glm glfw imgui)
+FetchContent_Declare(
+    miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio
+    GIT_TAG 0.11.22
+)
+
+FetchContent_MakeAvailable(glm glfw imgui miniaudio)
 
 add_executable(game_engine ${SOURCE_FILES})
 set_target_properties(game_engine PROPERTIES
@@ -94,6 +100,10 @@ target_sources(game_engine PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_openg
 
 # GLAD
 target_include_directories(game_engine PRIVATE vendor/glad/include)
+
+# miniaudio
+target_include_directories(game_engine PRIVATE ${miniaudio_SOURCE_DIR})
+target_link_libraries(game_engine PRIVATE miniaudio)
 
 target_link_libraries(game_engine PRIVATE ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES})
 target_compile_options(game_engine PRIVATE ${COMMON_COMPILE_FLAGS})
