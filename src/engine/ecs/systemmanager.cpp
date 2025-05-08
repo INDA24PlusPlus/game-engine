@@ -32,13 +32,13 @@ void SystemManager::update_components(Entity entity, Signature signature) {
             Query *query = &system->queries[j];
             Signature query_signature = query->get_signature();
             if ((signature & query_signature) == query_signature) {
-#ifndef ECS_DEBUGGING
+#ifdef ECS_DEBUGGING
                 INFO("Added entity {} to query, {}", entity, j);
 #endif
                 // Entity matches query
                 query->entities.insert(entity);
             } else {
-#ifndef ECS_DEBUGGING
+#ifdef ECS_DEBUGGING
                 INFO("Removed entity {} from query ", entity);
 #endif
                 // Entity does not match query

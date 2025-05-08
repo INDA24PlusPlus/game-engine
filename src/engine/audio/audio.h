@@ -80,8 +80,9 @@ class RAudio : public Resource<RAudio> {
             device = CAudioDevice(&context.context, device_info, &data_callback);
         }
 
-        void add_source(CAudioSource source) {
-            manager->add_source(source);
+        static void add_source(CAudioSource source) {
+            RAudio * audio = ECS::get_resource<RAudio>();
+            audio->manager->add_source(source);
         }
 
         void play_audio_callback(SOUND_BUF_TYPE * output, u32 frame_count) {
@@ -94,11 +95,9 @@ class RAudio : public Resource<RAudio> {
 };
 
 static void data_callback(ma_device * _device, void * pOutput, const void * _input, ma_uint32 frame_count) {
-    start_timer();
     RAudio * audio = ECS::get_resource<RAudio>();
 
     if (audio != nullptr) {
         audio->play_audio_callback((SOUND_BUF_TYPE *) pOutput, frame_count);
     }
-    PRINT_EXECUTION("Audio: ");
 }

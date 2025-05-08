@@ -7,7 +7,7 @@
 #include "component.hpp"
 #include "systemmanager.hpp"
 
-#define ECS_DEBUGGING
+// #define ECS_DEBUGGING
 
 class ECS {
     private:

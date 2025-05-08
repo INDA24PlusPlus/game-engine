@@ -31,7 +31,6 @@ class CAudioDevice : public Component<CAudioDevice> {
         CAudioDevice(ma_context * context, ma_device_info info, ma_device_data_proc callback) {
             is_playing = true;
 
-            ECS::register_component<CAudioSource>();
             ECS::register_component<CMADeviceInfo>();
             ECS::register_component<CMADevice>();
 
