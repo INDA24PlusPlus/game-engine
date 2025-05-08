@@ -5,19 +5,19 @@
 #define MAXLINE 1024
 #define NUM_PLAYERS 2
 
+// Send over UDP
+using message_type = int;
+using number_of_players = int;
+using new_player_id = int;
+
 typedef struct {
   int id;
   float x;
-  float y;
+  float z;
   float rot;
 } client_position;
 
-typedef struct {
-  int id;
-  u_int64_t seed;
-  client_position players[NUM_PLAYERS];
-} client_init;
-
+// Send over TCP
 typedef struct {
     int port;
 } client_request;

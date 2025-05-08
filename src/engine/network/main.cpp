@@ -9,12 +9,12 @@ int main(int argc, char *argv[]) {
   ecs.register_component<CClient>();
 
   auto accept_client_system = ecs.register_system<SAcceptClients>();
-  // auto send_system = ecs.register_system<SSendPositions>();
-  // auto get_system = ecs.register_system<SGetPositions>();
+  auto send_system = ecs.register_system<SSendPositions>();
+  auto get_system = ecs.register_system<SGetPositions>();
 
   while (true) {
     accept_client_system->update(ecs);
-    // send_system->update(ecs);
-    // get_system->update(ecs);
+    send_system->update(ecs);
+    get_system->update(ecs);
   }
 }
