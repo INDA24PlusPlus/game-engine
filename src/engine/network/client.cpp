@@ -57,19 +57,20 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
               sizeof(this->server_address)) < 0) {
     port = (rand() % 5000 + 20000);
     printf("binding on port: %d", port);
+    this->server_address.sin_port = htons(port);
   }
 
   this->server_address.sin_addr.s_addr = inet_addr(server_address);
   this->server_address.sin_port = htons(atoi(server_port));
 
-  INFO("Connecting to server\n");
+  INFO("Connecting to server");
   if (connect(this->tcp_handle, (const struct sockaddr *)&this->server_address,
               sizeof(sockaddr_in)) < 0) {
     ERROR("connect failed");
     exit(EXIT_FAILURE);
   }
 
-  INFO("Sending init message\n");
+  INFO("Sending init message");
   client_request message;
   message.port = port;
   if (send(this->tcp_handle, &message, sizeof(client_request), 0) < 0) {
@@ -82,7 +83,7 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
     number_of_players num_players;
   } init_message;
 
-  INFO("Aquiering game state\n");
+  INFO("Aquiering game state");
   if (recv(this->tcp_handle, (char *)&init_message,
            sizeof(new_player_id) + sizeof(number_of_players), 0) < 0) {
     ERROR("failed to get initial state");
@@ -101,9 +102,9 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
     auto pos = glm::vec3(player.x, 0, player.z);
     ecs.add_component<CTranslation>(online_player,
                                     CTranslation{.pos = pos,
-                                                 .rot = glm::quat(1, 0, 0, 0),
+                                                 .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                                                  .scale = glm::vec3(1)});
-    ecs.add_component<CVelocity>(online_player, CVelocity{.vel = glm::vec3(0)});
+    ecs.add_component<CVelocity>(online_player, CVelocity{.vel = glm::vec3(0.0f)});
     ecs.add_component<CPlayer>(online_player, CPlayer());
     ecs.add_component<CSpeed>(online_player, CSpeed());
     ecs.add_component<CHealth>(online_player, CHealth());
@@ -113,7 +114,7 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
     ecs.add_component<CMesh>(online_player, CMesh(player_node));
   }
 
-  INFO("id: %d\n", init_message.id);
+  printf("id: %d\n", init_message.id);
 }
 
 SGetMessage::SGetMessage() {
@@ -121,46 +122,35 @@ SGetMessage::SGetMessage() {
   query_count = 1;
 }
 
-void add_new_player(ECS &ecs, RMultiplayerClient *client) {
-  INFO("New player joined");
-  client_position buffer;
-  if (recv(client->udp_handle, &buffer, sizeof(client_position), 0) < 0) {
-    return;
-  }
+void add_new_player(ECS &ecs, int *buffer) {
+  client_position *pos = (client_position *)(buffer + 1);
 
   auto new_player = ecs.create_entity();
-  ecs.add_component(new_player, COnline{.id = buffer.id});
+  ecs.add_component(new_player, COnline{.id = pos->id});
   ecs.add_component(new_player,
-                    CTranslation{.pos = glm::vec3(buffer.x, 0, buffer.z),
+                    CTranslation{.pos = glm::vec3(pos->x, 0, pos->z),
                                  .rot = glm::quat(1, 0, 0, 0),
                                  .scale = glm::vec3(1)});
   ecs.add_component(new_player, CVelocity{.vel = glm::vec3(0)});
 }
 
-void get_position(ECS &ecs, RMultiplayerClient *client, EntityArray *entities) {
-  number_of_players num;
-  if (recvfrom(client->udp_handle, (char *)&num, sizeof(number_of_players),
-               MSG_WAITALL, nullptr, nullptr) < 0) {
-    return;
-  }
-
+void get_position(ECS &ecs, int *buffer, EntityArray *entities) {
+  int num_players = buffer[1];
   Iterator it = {.next = 0};
   Entity e;
 
-  for (int i = 0; i < num; i++) {
-    client_position buffer;
-    if (recvfrom(client->udp_handle, (char *)&buffer, sizeof(client_position),
-                 MSG_WAITALL, nullptr, nullptr) < 0) {
-      return;
-    }
+  for (int i = 0; i < num_players; i++) {
+    client_position *pos =
+        (client_position *)(buffer + 2 +
+                            i * (sizeof(client_position) / sizeof(int)));
 
     while (entities->next(it, e)) {
       CTranslation &translation = ecs.get_component<CTranslation>(e);
       int id = ecs.get_component<COnline>(e).id;
 
-      if (buffer.id == id) {
-        translation.pos.x = buffer.x;
-        translation.pos.z = buffer.z;
+      if (pos->id == id) {
+        translation.pos.x = pos->x;
+        translation.pos.z = pos->z;
         // this->players[i].rot = buffer[i].rot;
       }
     }
@@ -168,23 +158,23 @@ void get_position(ECS &ecs, RMultiplayerClient *client, EntityArray *entities) {
 }
 
 void SGetMessage::update(ECS &ecs) {
-  message_type type;
+  int buffer[1000];
   auto client = ecs.get_resource<RMultiplayerClient>();
-  while (recvfrom(client->udp_handle, (char *)&type, sizeof(message_type),
+  while (recvfrom(client->udp_handle, (char *)&buffer, sizeof(buffer),
                   MSG_WAITALL, nullptr, nullptr) > 0) {
-    switch (type) {
+    switch (buffer[0]) {
     case 0:
       DEBUG("New player");
-      add_new_player(ecs, client);
+      add_new_player(ecs, buffer);
       break;
     case 1: {
-      DEBUG("Get position");
       auto entities = get_query(0)->get_entities();
-      get_position(ecs, client, entities);
+      get_position(ecs, buffer, entities);
       break;
     }
     default:
       ERROR("Unknown message");
+      printf("%d", buffer[0]);
     }
   }
 }

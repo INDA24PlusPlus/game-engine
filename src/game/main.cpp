@@ -80,7 +80,6 @@ public:
   RRenderer(engine::Renderer renderer) : m_renderer(renderer) {}
 };
 
-
 class SDeltaTime : public System<SDeltaTime> {
 public:
   SDeltaTime() {}
@@ -226,13 +225,16 @@ public:
     auto entities = get_query(0)->get_entities();
     Iterator it = {.next = 0};
     Entity e;
+    int i = 0;
     while (entities->next(it, e)) {
       auto translation = ecs.get_component<CTranslation>(e);
       auto mesh = ecs.get_component<CMesh>(e);
       hierarchy.m_nodes[mesh.m_node.get_value()].translation = translation.pos;
       hierarchy.m_nodes[mesh.m_node.get_value()].rotation = translation.rot;
       hierarchy.m_nodes[mesh.m_node.get_value()].scale = translation.scale;
+      i++;
     }
+    printf("num entities: %d\n", i);
 
     glfwPollEvents();
     glfwGetFramebufferSize(window, &width, &height);

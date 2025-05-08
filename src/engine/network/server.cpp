@@ -112,18 +112,30 @@ void SSendPositions::update(ECS &ecs) {
     } message;
 
     message.type = 1;
-    message.num = i;
 
     while (to_send->next(send_it, send)) {
       auto player_pos = ecs.get_component<CClient>(send);
+      if (client.id == player_pos.id) {
+        continue;
+      }
       message.pos[i].id = player_pos.id;
       message.pos[i].x = player_pos.x;
       message.pos[i].z = player_pos.z;
+      i++;
     }
 
-    sendto(server->udp_handle, (const char *)&message,
-           2 * sizeof(int) + sizeof(client_position) * i, MSG_CONFIRM,
-           (const struct sockaddr *)&client.address, sizeof(client.address));
+    if (i == 0) {
+      continue;
+    }
+
+    message.num = i;
+
+    if (sendto(server->udp_handle, (const char *)&message,
+               2 * sizeof(int) + sizeof(client_position) * i, MSG_CONFIRM,
+               (const struct sockaddr *)&client.address,
+               sizeof(client.address)) < 0) {
+      ERROR("failed to send pos");
+    }
   }
 }
 
@@ -167,7 +179,7 @@ void SAcceptClients::update(ECS &ecs) {
   while (recv(client.socket, (char *)&request, sizeof(client_request), 0) < 0) {
   }
 
-  client.address.sin_port = request.port;
+  client.address.sin_port = htons(request.port);
 
   int id = rand();
 
@@ -193,7 +205,10 @@ void SAcceptClients::update(ECS &ecs) {
       }
     }
   }
+
+  printf("id: %d", id);
   init_message.id = id;
+  client.id = id;
   send_it = {.next = 0};
   int i = 0;
 
