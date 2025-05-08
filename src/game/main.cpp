@@ -1,8 +1,8 @@
 #include "engine/Camera.h"
-#include <glad/glad.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <cstdio>
+#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 #include <thread>
@@ -31,14 +31,47 @@
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
+#include "settings.h"
 #include "state.h"
-#include "time.h"
 #include "world_gen/map.h"
+
+inline glm::vec4 from_hex(const char *h) {
+  unsigned int r, g, b, a = 255;
+  if (std::strlen(h) == 7)
+    std::sscanf(h, "#%02x%02x%02x", &r, &g, &b);
+  else
+    std::sscanf(h, "#%02x%02x%02x%02x", &r, &g, &b, &a);
+  return glm::vec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f);
+}
+
+class RDeltaTime : public Resource<RDeltaTime> {
+public:
+  f32 delta_time;
+  f32 prev_time;
+  RDeltaTime(f32 current_time) : delta_time(0), prev_time(current_time) {}
+};
 
 class RInput : public Resource<RInput> {
 public:
-  engine::Input m_input;
-  RInput(GLFWwindow *window) : m_input(window) {}
+  engine::Input input;
+  Settings settings;
+  RInput(GLFWwindow *window) : input(window) {}
+
+  // returns a vec3 with xz coordinates for movement keys in settings
+  glm::vec3 get_direction() {
+    glm::vec3 direction(0.0f);
+
+    if (input.is_key_pressed(settings.key_forward))
+      direction.z += 1.0f;
+    if (input.is_key_pressed(settings.key_backward))
+      direction.z -= 1.0f;
+    if (input.is_key_pressed(settings.key_left))
+      direction.x -= 1.0f;
+    if (input.is_key_pressed(settings.key_right))
+      direction.x += 1.0f;
+
+    return direction;
+  }
 };
 
 class RRenderer : public Resource<RRenderer> {
@@ -53,10 +86,56 @@ public:
   engine::Camera m_camera;
   engine::NodeHierarchy m_hierarchy;
   GLFWwindow *m_window;
+  Entity m_player; // temporary way of getting the player in singleplayer
   RScene(engine::Scene scene, engine::Camera camera, GLFWwindow *window,
-         engine::NodeHierarchy hierarchy)
+         engine::NodeHierarchy hierarchy, Entity player)
       : m_scene(scene), m_camera(camera), m_hierarchy(hierarchy),
-        m_window(window) {}
+        m_window(window), m_player(player) {}
+};
+
+class CSpeed : public Component<CSpeed> {
+public:
+  float speed = 10;
+};
+
+class CHealth : public Component<CHealth> {
+public:
+  float health = 100;
+
+  void take_damage(float damage) {
+    health -= damage;
+    if (health < 0.0f) {
+      health = 0.0f;
+    }
+  }
+
+  bool is_alive() { return health > 0.0f; }
+};
+
+class CEnemyGhost : public Component<CEnemyGhost> {
+public:
+  float cooldown = 0.0f;
+};
+
+class SDeltaTime : public System<SDeltaTime> {
+public:
+  SDeltaTime() {}
+
+  void update(ECS &ecs) {
+    auto time = ecs.get_resource<RDeltaTime>();
+    time->delta_time = glfwGetTime() - time->prev_time;
+    time->prev_time = glfwGetTime();
+  }
+};
+
+class SInput : public System<SInput> {
+public:
+  SInput() {}
+
+  void update(ECS &ecs) {
+    auto input = ecs.get_resource<RInput>();
+    input->input.update();
+  }
 };
 
 class SMove : public System<SMove> {
@@ -73,11 +152,94 @@ public:
     while (entities->next(it, e)) {
       CTranslation &translation = ecs.get_component<CTranslation>(e);
       CVelocity &vel = ecs.get_component<CVelocity>(e);
-      if (glm::length(vel.vel) > 0) {
-        translation.pos += vel.vel;
-        vel.vel = glm::vec3(0);
-      }
+      translation.pos += vel.vel;
+      vel.vel = glm::vec3(0);
     }
+  }
+};
+
+class SUIRender : public System<SUIRender> {
+public:
+  SUIRender() {}
+
+  void update(ECS &ecs) {
+    auto time = ecs.get_resource<RDeltaTime>();
+    auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
+    auto scene = ecs.get_resource<RScene>();
+    auto window = scene->m_window;
+
+    int height;
+    int width;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // DRAW HEALTH BAR
+
+    // TODO: Get nearest player instead of only player in single player
+    Entity &nearest_player = scene->m_player;
+    CHealth &nearest_player_health = ecs.get_component<CHealth>(nearest_player);
+
+    // Draw
+    renderer->begin_rect_pass();
+    {
+      float hpbar_width = 256.f;
+      float hpbar_height = 32.f;
+      float margin = 12.f;
+      float border_size = 4.f;
+
+      static float smooth_health = nearest_player_health.health;
+      static float last_health = nearest_player_health.health;
+      static float damage_timer = 0.f;
+
+      // smooth taken damage indicator bar
+      if (nearest_player_health.health < last_health) {
+        last_health = nearest_player_health.health;
+        damage_timer = 0.2f;
+      }
+      if (damage_timer > 0.f) {
+        damage_timer -= time->delta_time;
+        if (damage_timer <= 0.f) {
+          last_health = nearest_player_health.health;
+        }
+      } else {
+        smooth_health = glm::mix(smooth_health, nearest_player_health.health,
+                                 time->delta_time * 10.f);
+      }
+
+      float max_health = 100.f; // temporary
+
+      // damage indicator bar (shows how much damage was taken)
+      float damage_bar_width =
+          hpbar_width * (nearest_player_health.health / max_health);
+      renderer->draw_rect({.x = (float)width - hpbar_width - margin,
+                           .y = margin,
+                           .width = damage_bar_width,
+                           .height = hpbar_height},
+                          from_hex("#ff0000a0"));
+
+      // hp bar
+      float bar_width = hpbar_width * (smooth_health / max_health);
+      renderer->draw_rect({.x = (float)width - hpbar_width - margin,
+                           .y = margin,
+                           .width = bar_width,
+                           .height = hpbar_height},
+                          from_hex("#ff8519a0"));
+
+      // background
+      renderer->draw_rect({.x = (float)width - hpbar_width - margin,
+                           .y = margin,
+                           .width = hpbar_width,
+                           .height = hpbar_height},
+                          from_hex("#000000a0"));
+
+      // border
+      renderer->draw_rect(
+          {.x = (float)width - hpbar_width - margin - border_size,
+           .y = margin - border_size,
+           .width = hpbar_width + 2 * border_size,
+           .height = hpbar_height + 2 * border_size},
+          from_hex("#2a2a2aff"));
+    }
+    renderer->end_rect_pass(width, height);
   }
 };
 
@@ -116,75 +278,202 @@ public:
     renderer->begin_pass(scene->m_scene, camera, width, height);
     renderer->draw_hierarchy(scene->m_scene, hierarchy);
     renderer->end_pass();
-
-    glfwSwapBuffers(scene->m_window);
   }
 };
 
-class SLocalMove : public System<SLocalMove> {
+class SCamera : public System<SCamera> {
 public:
-  SLocalMove() {
+  SCamera() {
     queries[0] =
-        Query(CTranslation::get_id(), CVelocity::get_id(), CLocal::get_id());
+        Query(CTranslation::get_id(), CLocal::get_id(), CPlayer::get_id());
     query_count = 1;
   }
 
   void update(ECS &ecs) {
-    auto time = ecs.get_resource<RDeltaTime>();
-    auto input = ecs.get_resource<RInput>()->m_input;
+    float delta_time = ecs.get_resource<RDeltaTime>()->delta_time;
     auto scene = ecs.get_resource<RScene>();
-    auto camera = &scene->m_camera;
     auto window = scene->m_window;
-    auto local_player = get_query(0)->get_entities()->first();
-    CVelocity &local_vel = ecs.get_component<CVelocity>(*local_player);
-    CTranslation &local_translation =
-        ecs.get_component<CTranslation>(*local_player);
+    RInput *input = ecs.get_resource<RInput>();
+    ;
 
-    if (input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
-      bool mouse_locked =
-          glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    engine::Camera &camera = scene->m_camera;
+
+    // mouse locking
+    bool mouse_locked =
+        glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
+    if (input->input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
+      mouse_locked = !mouse_locked;
       glfwSetInputMode(window, GLFW_CURSOR,
-                       mouse_locked ? GLFW_CURSOR_NORMAL
-                                    : GLFW_CURSOR_DISABLED);
+                       mouse_locked ? GLFW_CURSOR_DISABLED
+                                    : GLFW_CURSOR_NORMAL);
+      INFO("debbbbiiiiig");
     }
 
-    glm::vec3 direction(0.0f);
+    // camera rotation mouse input
+    if (mouse_locked) {
+      glm::vec2 mouse_delta = input->input.get_mouse_position_delta();
+      // INFO("debbbb x: {} y: {}", mouse_delta.x, mouse_delta.y);
+      camera.rotate(-mouse_delta.x * 0.00048f * input->settings.sensitivity,
+                    -mouse_delta.y * 0.00048f * input->settings.sensitivity);
+    }
 
-    if (input.is_key_pressed(GLFW_KEY_W))
-      direction.z += 1.0f;
-    if (input.is_key_pressed(GLFW_KEY_S))
-      direction.z -= 1.0f;
-    if (input.is_key_pressed(GLFW_KEY_A))
-      direction.x -= 1.0f;
-    if (input.is_key_pressed(GLFW_KEY_D))
-      direction.x += 1.0f;
+    // camera movement
+    if (input->input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+      // free cam movement
+      // movement input
+      glm::vec3 direction = input->get_direction();
 
-    if (glm::length(direction) > 0) {
-      auto forward = camera->m_orientation * glm::vec3(0, 0, -1);
-      auto right = camera->m_orientation * glm::vec3(1, 0, 0);
+      if (glm::dot(direction, direction) > 0) {
+        camera.move(glm::normalize(direction), delta_time);
+      }
+    } else { // this query could be changed to something like CCameraFollow
+             // instead of being hardcoded to local players
+      // follow player cam
+      // get players
+      auto players = get_query(0)->get_entities();
+      glm::vec3 mean_player_position = glm::vec3(0.0f, 0.0f, 0.0f);
+      Iterator it = {.next = 0};
+      Entity e;
+      int player_count = 0;
+      while (players->next(it, e)) {
+        mean_player_position += ecs.get_component<CTranslation>(e).pos;
+        player_count++;
+      }
+      mean_player_position /= player_count;
+
+      if (player_count > 0) {
+        float camera_distance = 10;
+
+        glm::vec3 camera_target_position =
+            mean_player_position -
+            camera.m_orientation * glm::vec3(0, 0, -1) * camera_distance;
+        camera.m_pos =
+            glm::mix(camera.m_pos, camera_target_position, delta_time * 5);
+      }
+    }
+  }
+};
+
+class SPlayerController : public System<SPlayerController> {
+public:
+  SPlayerController() {
+    queries[0] = Query(CTranslation::get_id(), CVelocity::get_id(),
+                       CLocal::get_id(), CPlayer::get_id());
+    query_count = 1;
+  }
+
+  void update(ECS &ecs) {
+    // INFO("debug");
+    float delta_time = ecs.get_resource<RDeltaTime>()->delta_time;
+    auto scene = ecs.get_resource<RScene>();
+    engine::Camera &camera = scene->m_camera;
+
+    RInput &input = *ecs.get_resource<RInput>();
+    // Settings settings = ecs.get_resource<RInput>()->settings;
+
+    // Get local player from query
+    Entity player;
+    {
+      auto player_ptr = get_query(0)->get_entities()->first();
+      if (player_ptr == nullptr) {
+        ERROR("NO PLAYER FOUND!!");
+        return;
+      }
+      player = *player_ptr;
+    }
+
+    CVelocity &velocity = ecs.get_component<CVelocity>(player);
+    float &player_speed = ecs.get_component<CSpeed>(player).speed;
+    CTranslation &translation = ecs.get_component<CTranslation>(player);
+
+    // movement input
+    glm::vec3 direction = input.get_direction();
+
+    // player movement
+    if (!input.input.is_key_pressed(GLFW_KEY_LEFT_SHIFT)) {
+      auto forward = camera.m_orientation * glm::vec3(0, 0, -1);
+      auto right = camera.m_orientation * glm::vec3(1, 0, 0);
       forward.y = 0;
       right.y = 0;
 
       forward = glm::normalize(forward);
       right = glm::normalize(right);
+      velocity.vel = (right * direction.x + forward * direction.z) *
+                     player_speed * delta_time;
+      ;
 
-      local_vel.vel = (right * direction.x + forward * direction.z) *
-                      camera->m_speed * time->delta_time;
+      if (glm::length(direction) > 0) {
+        glm::quat target_rotation =
+            glm::quatLookAt(glm::normalize(velocity.vel), glm::vec3(0, 1, 0));
 
-      glm::quat target_rotation =
-          glm::quatLookAt(glm::normalize(local_vel.vel), glm::vec3(0, 1, 0));
-
-      local_translation.rot = glm::slerp(local_translation.rot, target_rotation,
-                                         time->delta_time * 8.0f);
+        translation.rot =
+            glm::slerp(translation.rot, target_rotation, delta_time * 8.0f);
+      }
     }
+  }
+};
 
-    glm::vec3 camera_offset = glm::vec3(-5, 5, -5);
-    glm::vec3 camera_target_position = local_translation.pos + camera_offset;
-    camera->m_pos =
-        glm::mix(camera->m_pos, camera_target_position, time->delta_time * 5);
-    camera->m_orientation =
-        glm::quatLookAt(glm::normalize(-camera_offset), glm::vec3(0, 1, 0));
-    input.update();
+class SEnemyGhost : public System<SEnemyGhost> {
+public:
+  SEnemyGhost() {
+    queries[0] = Query(CTranslation::get_id(), CVelocity::get_id(),
+                       CEnemyGhost::get_id());
+    query_count = 1;
+  }
+
+  void update(ECS &ecs) {
+    auto time = ecs.get_resource<RDeltaTime>();
+    auto scene = ecs.get_resource<RScene>();
+
+    auto entities = get_query(0)->get_entities();
+    Iterator it = {.next = 0};
+    Entity e;
+    while (entities->next(it, e)) {
+      CTranslation &translation = ecs.get_component<CTranslation>(e);
+      CVelocity &vel = ecs.get_component<CVelocity>(e);
+      CEnemyGhost &ghost = ecs.get_component<CEnemyGhost>(e);
+      float &speed = ecs.get_component<CSpeed>(e).speed;
+      // float& health = ecs.get_component<CHealth>(e).health;
+
+      // TODO: Get nearest player instead of only player in single player
+      Entity &nearest_player = scene->m_player;
+      CTranslation &nearest_player_translation =
+          ecs.get_component<CTranslation>(nearest_player);
+      CHealth &nearest_player_health =
+          ecs.get_component<CHealth>(nearest_player);
+
+      // update enemy
+      if (ghost.cooldown > 0) {
+        ghost.cooldown -= time->delta_time;
+        // INFO("debug {}", ghost.cooldown);
+        continue;
+      }
+      glm::vec3 enemy_target_look =
+          nearest_player_translation.pos - translation.pos;
+      enemy_target_look.y = 0;
+
+      float player_distance = glm::length(enemy_target_look);
+
+      if (player_distance > 2.0f) {
+        // Rotate
+        enemy_target_look = glm::normalize(enemy_target_look);
+        glm::quat target_rotation =
+            glm::quatLookAt(enemy_target_look, glm::vec3(0, 1, 0));
+        translation.rot = glm::slerp(translation.rot, target_rotation,
+                                     time->delta_time * 2.0f);
+
+        // Move in facing direction
+        glm::vec3 forward = translation.rot * glm::vec3(0, 0, -1);
+        vel.vel = forward * speed * time->delta_time;
+
+        // hover effect sine function
+        translation.pos.y = glm::sin(time->prev_time * speed) * 0.3;
+      } else {
+        // Damage player
+        nearest_player_health.take_damage(20);
+        ghost.cooldown = 1.0;
+      }
+    }
   }
 };
 
@@ -309,56 +598,92 @@ int main(int argc, char **argv) {
   // Register componets
   INFO("Create componets");
   ecs.register_component<CPlayer>();
+  ecs.register_component<CSpeed>();
+  ecs.register_component<CHealth>();
+  ecs.register_component<CEnemyGhost>();
   ecs.register_component<CTranslation>();
   ecs.register_component<CVelocity>();
   ecs.register_component<CMesh>();
-  ecs.register_component<COnline>();
+
+  // Register systems
+  INFO("Create systems");
+  auto move_system = ecs.register_system<SMove>();
+  auto render_system = ecs.register_system<SRender>();
+  auto ui_render_system = ecs.register_system<SUIRender>();
+  auto player_controller_system = ecs.register_system<SPlayerController>();
+  auto camera_system = ecs.register_system<SCamera>();
+  auto delta_time_system = ecs.register_system<SDeltaTime>();
+  auto enemy_ghost_system = ecs.register_system<SEnemyGhost>();
+  auto input_system = ecs.register_system<SInput>();
+  // auto get_message_system = ecs.register_system<SGetMessage>();
+  // auto send_online_position_system =
+  // ecs.register_system<SSendOnlinePosition>();
 
   // Create local player
   INFO("Create player");
   Entity player = ecs.create_entity();
-    DEBUG("Add CPlayer");
   ecs.add_component<CPlayer>(player, CPlayer());
-    DEBUG("Add CTranslation");
+  ecs.add_component<CLocal>(player, CLocal());
+  ecs.add_component<CSpeed>(player, CSpeed());
+  ecs.add_component<CHealth>(player, CHealth());
   ecs.add_component<CTranslation>(
       player, CTranslation{.pos = glm::vec3(0.0f),
                            .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                            .scale = glm::vec3(1.0f)});
-    DEBUG("Add CVelocity");
   ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
 
-    DEBUG("Add player mesh");
   auto player_prefab = scene.prefab_by_name("Player");
   engine::NodeHandle player_node =
       hierarchy.instantiate_prefab(scene, player_prefab, engine::NodeHandle(0));
 
   ecs.add_component<CMesh>(player, CMesh(player_node));
 
-  // Register systems
-  INFO("Create systems");
-  auto move_system = ecs.register_system<SMove>();
-  auto render_system = ecs.register_system<SRender>();
-  auto local_move_system = ecs.register_system<SLocalMove>();
-  auto delta_time_system = ecs.register_system<SDeltaTime>();
-  // auto get_message_system = ecs.register_system<SGetMessage>();
-  // auto send_online_position_system = ecs.register_system<SSendOnlinePosition>();
+  // Create ghosts
+  auto ghost_prefab = scene.prefab_by_name("Ghost");
+  for (int i = 0; i < 2; i++) {
+    Entity ghost = ecs.create_entity();
+    engine::NodeHandle ghost_node = hierarchy.instantiate_prefab(
+        scene, ghost_prefab, engine::NodeHandle(0));
+    ecs.add_component<CEnemyGhost>(ghost, CEnemyGhost({.cooldown = 0.0f}));
+    ecs.add_component<CSpeed>(ghost, CSpeed{.speed = (float)(3 + i)});
+    ecs.add_component<CHealth>(ghost, CHealth());
+    ecs.add_component<CTranslation>(
+        ghost, CTranslation{
+                   .pos = glm::vec3(10.0f, 0.0f, i * 10.0f),
+                   .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                   .scale = glm::vec3(1.0f),
+               });
+    ecs.add_component<CVelocity>(ghost, CVelocity());
+    ecs.add_component<CMesh>(ghost, CMesh(ghost_node));
+  }
 
-  // Regisetr resources
-  INFO("Register resources");
+  // Register resources
   ecs.register_resource(new RInput(window));
   ecs.register_resource(new RRenderer(renderer));
-  ecs.register_resource(new RScene(scene, camera, window, hierarchy));
-  ecs.register_resource(new RDeltaTime());
+  ecs.register_resource(new RScene(scene, camera, window, hierarchy, player));
+  ecs.register_resource(new RDeltaTime(glfwGetTime()));
   ecs.register_resource(new RMultiplayerClient(argv[1], argv[2], ecs));
 
+
+
   INFO("Begin game loop");
+
   while (!glfwWindowShouldClose(window)) {
     // Update
-    delta_time_system->update(ecs);
-    local_move_system->update(ecs);
-    move_system->update(ecs);
-    // get_message_system->update(ecs);
-    // send_online_position_system->update(ecs);
-    render_system->update(ecs);
+    delta_time_system->update(ecs); // updates delta_time
+    player_controller_system->update(
+        ecs); // player controller for local player(movement and stuff)
+    camera_system->update(ecs);      // camera control
+    enemy_ghost_system->update(ecs); // enemy ghost movement and stuff
+    move_system->update(ecs);        // moves entities with velocity
+
+    input_system->update(ecs); // stores this frames keys as previous frames
+                               // keys (do this last, before draw)
+
+    // Draw
+    render_system->update(ecs);    // handle rendering
+    ui_render_system->update(ecs); // handle rendering of UI
+
+    glfwSwapBuffers(window);
   }
 }

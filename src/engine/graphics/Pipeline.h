@@ -38,6 +38,7 @@ public:
     void deinit();
 
     void add_vertex_buffer(std::span<const VertexAttributeDescriptor> attributes, u32 stride, std::span<u8> vertex_data);
+    void add_vertex_buffer_from_buffer(std::span<const VertexAttributeDescriptor> attributes, u32 stride, u32 buffer);
     void add_index_buffer(std::span<u8> indices);
     void add_vertex_shader(const std::string& path, std::span<u32> specialization_constants = {});
     void add_fragment_shader(const std::string& path, std::span<u32> specialization_constants = {});
