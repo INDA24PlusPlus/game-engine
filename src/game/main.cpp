@@ -89,6 +89,9 @@ public:
 
 class CPlayer : public Component<CPlayer> {
 public:
+    float attack_cooldown = 0.0f;
+    float attack_damage = 50.0f;
+    float attack_range_squared = 25.0f;
 };
 
 class CSpeed : public Component<CSpeed> {
@@ -124,6 +127,14 @@ public:
 class CVelocity : public Component<CVelocity> {
 public:
     glm::vec3 vel;
+    
+    void move_over_time(glm::vec3 move, float time) {
+        move_over_time_vel = move / time;
+        move_over_time_time = time;
+    }
+
+    glm::vec3 move_over_time_vel;
+    float move_over_time_time = 0.0;
 };
 
 class CTranslation : public Component<CTranslation> {
@@ -177,6 +188,11 @@ public:
             CVelocity& vel = ecs.get_component<CVelocity>(e);
             translation.pos += vel.vel;
             vel.vel = glm::vec3(0);
+            if (vel.move_over_time_time > 0.0f) {
+                float delta_time = ecs.get_resource<RDeltaTime>()->delta_time;
+                translation.pos += vel.move_over_time_vel * delta_time;
+                vel.move_over_time_time -= delta_time;
+            }
         }
     }
 };
@@ -300,20 +316,17 @@ public:
         
         engine::Camera& camera = scene->m_camera;
         
-
         // mouse locking
         bool mouse_locked = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
         if (input->input.is_key_just_pressed(GLFW_KEY_ESCAPE)) {
             mouse_locked = !mouse_locked;
             glfwSetInputMode(window, GLFW_CURSOR,
                             mouse_locked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
-            INFO("debbbbiiiiig");
         }
 
         // camera rotation mouse input
         if (mouse_locked) {
             glm::vec2 mouse_delta = input->input.get_mouse_position_delta();
-            //INFO("debbbb x: {} y: {}", mouse_delta.x, mouse_delta.y);
             camera.rotate(-mouse_delta.x * 0.00048f * input->settings.sensitivity,
                                 -mouse_delta.y * 0.00048f * input->settings.sensitivity);
         }
@@ -357,11 +370,11 @@ class SPlayerController : public System<SPlayerController> {
 public:
     SPlayerController() {
         queries[0] = Query(CTranslation::get_id(), CVelocity::get_id(), CLocal::get_id(), CPlayer::get_id());
-        query_count = 1;
+        queries[1] = Query(CTranslation::get_id(), CVelocity::get_id(), CEnemyGhost::get_id(), CHealth::get_id());
+        query_count = 2;
     }
 
     void update(ECS &ecs) {
-        //INFO("debug");
         float delta_time = ecs.get_resource<RDeltaTime>()->delta_time;
         auto scene = ecs.get_resource<RScene>();
         engine::Camera& camera = scene->m_camera;
@@ -381,7 +394,8 @@ public:
         }
 
 
-        CVelocity &velocity = ecs.get_component<CVelocity>(player);
+        CVelocity& velocity = ecs.get_component<CVelocity>(player);
+        CPlayer& c_player = ecs.get_component<CPlayer>(player);
         float& player_speed = ecs.get_component<CSpeed>(player).speed;
         CTranslation &translation =
             ecs.get_component<CTranslation>(player);
@@ -409,6 +423,42 @@ public:
                     glm::slerp(translation.rot, target_rotation, delta_time * 8.0f);
             }
         }
+
+        if (c_player.attack_cooldown <= 0.0f) {
+            if (input.input.is_key_pressed(input.settings.key_attack)) {
+                c_player.attack_cooldown += 0.3f;
+                // TODO: sword animation from 45 degrees to the right of player rotation 
+                //       to 45 degrees to the left of player rotation
+                //       and adjust range
+
+                auto ghosts = get_query(1)->get_entities();
+                Iterator it = {.next = 0};
+                Entity ghost;
+                while (ghosts->next(it, ghost)) {
+                    CTranslation& ghost_translation = ecs.get_component<CTranslation>(ghost);
+                    
+                    glm::vec3 diff_player_ghost = ghost_translation.pos - translation.pos;
+                    diff_player_ghost.y = 0.0f;
+
+                    float distance_player_ghost_squared = glm::dot(diff_player_ghost, diff_player_ghost);
+                    if (distance_player_ghost_squared <= c_player.attack_range_squared) {
+                        // ghost was in range
+                        // check angle
+                        glm::vec3 forward_direction = translation.rot * glm::vec3(0, 0, -1);
+                        glm::vec3 direction_to_ghost = glm::normalize(diff_player_ghost - forward_direction * 0.8f);
+                        float cosine_angle = glm::dot(direction_to_ghost, forward_direction);
+                        if (cosine_angle > 0.7f) {
+                            // ghost was hit!
+                            ecs.get_component<CHealth>(ghost).take_damage(c_player.attack_damage);
+                            CVelocity& ghost_vel = ecs.get_component<CVelocity>(ghost);
+                            ghost_vel.move_over_time(forward_direction * 10.0f, 0.3f);
+                        }
+                    }
+                }
+            }
+        } else {
+            c_player.attack_cooldown -= delta_time;
+        }
     }
 };
 
@@ -431,7 +481,12 @@ class SEnemyGhost : public System<SEnemyGhost> {
             CVelocity& vel = ecs.get_component<CVelocity>(e);
             CEnemyGhost& ghost = ecs.get_component<CEnemyGhost>(e);
             float& speed = ecs.get_component<CSpeed>(e).speed;
-            //float& health = ecs.get_component<CHealth>(e).health;
+            CHealth& health = ecs.get_component<CHealth>(e);
+            if (!health.is_alive()) {
+                // ecs.destroy_entity(e); this was problem
+                translation.pos.y = -3.0;
+                continue;
+            }
             
             // TODO: Get nearest player instead of only player in single player
             Entity& nearest_player = scene->m_player;
