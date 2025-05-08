@@ -787,10 +787,6 @@ void AssetImporter::load_materials(const tinygltf::Model &model) {
             flags |= (u32)Material::Flags::has_emission_map;
         }
 
-        if (material.doubleSided) {
-            WARN("glTF model has double sided material which will not be rendered correctly");
-        }
-
         m_materials.push_back({
             .flags = (Material::Flags)flags,
             .base_color_factor = glm::vec4(base_color_factor[0], base_color_factor[1],
@@ -808,6 +804,7 @@ void AssetImporter::load_materials(const tinygltf::Model &model) {
             .emission_map = m_base_texture + material.emissiveTexture.index,
             .emission_factor =
                 glm::vec3(emissive_factor[0], emissive_factor[1], emissive_factor[1]),
+            .is_double_sided = material.doubleSided,
         });
     }
 }

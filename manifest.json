@@ -15,11 +15,15 @@
         {
             "name": "Cube",
             "path": "assets/cube.glb"
+        },
+        {
+            "name": "Ghost",
+            "path": "assets/ghost.glb"
         }
     ],
     "prefabs": [
         "prefabs/Player.json",
         "prefabs/Scene.json",
-        "prefabs/Enemy.json"
+        "prefabs/Ghost.json"
     ]
 }

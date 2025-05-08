@@ -1,0 +1,26 @@
+{
+    "name": "Ghost",
+    "nodes": [
+        {
+            "mesh": "Ghost",
+            "name": "Ghost",
+            "rotation": [
+                0.0,
+                1.0,
+                0.0,
+                0.0
+            ],
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "translation": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    ],
+    "root": 0
+}

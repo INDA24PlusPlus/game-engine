@@ -1,4 +1,5 @@
 #include "Input.h"
+#include <print>
 
 engine::Input::Input(GLFWwindow* window) : window{window}, prevKeyStates{false}, prevMousePosition(get_mouse_position()) {}
 

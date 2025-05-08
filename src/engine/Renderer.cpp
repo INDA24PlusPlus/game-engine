@@ -12,7 +12,10 @@
 #include <string>
 
 #include "AssetLoader.h"
+#include "engine/graphics/Pipeline.h"
+#include "glm/ext/matrix_clip_space.hpp"
 #include "glm/fwd.hpp"
+#include "graphics/GPURingBuffer.h"
 #include "graphics/Image.h"
 #include "graphics/Pipeline.h"
 #include "graphics/Sampler.h"
@@ -72,13 +75,14 @@ void Renderer::init(LoadProc load_proc) {
     create_ubos();
     generate_offline_content();
     create_skybox();
+    create_rect_pass();
     INFO("Initialized renderer");
 }
 
 f32 Renderer::get_max_texture_filtering_level() const { return m_max_texture_filtering; }
 
 // FIXME: Hack
-void Renderer::set_texture_filtering_level(Scene& scene, f32 level) {
+void Renderer::set_texture_filtering_level(Scene &scene, f32 level) {
     for (size_t i = 0; i < scene.m_samplers.size(); ++i) {
         glSamplerParameterf(scene.m_samplers[i].m_handle, GL_TEXTURE_MAX_ANISOTROPY, level);
     }
@@ -136,6 +140,8 @@ void Renderer::begin_pass(const Scene &scene, const Camera &camera, u32 width, u
     glBindTextureUnit(7, m_offline_images.prefiltered_cubemap.m_handle);
 
     glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
 
     f32 aspect_ratio = (f32)width / (f32)height;
     UBOMatrices matrices;
@@ -211,15 +217,14 @@ void Renderer::draw_mesh(u32 mesh_handle, const glm::mat4 &transform) {
 
         auto num_indices = prim.num_indices();
         u64 byte_offset = prim.indices_start;
-
+        if (material.is_double_sided) {
+            glDisable(GL_CULL_FACE);
+        } else {
+            glEnable(GL_CULL_FACE);
+        }
         glDrawElementsBaseVertex(GL_TRIANGLES, num_indices, prim.index_type, (void *)byte_offset,
                                  prim.base_vertex);
     }
-}
-
-void Renderer::update_light_positions(u32 index, glm::vec4 pos) {
-    glNamedBufferSubData(m_ubo_light_positions, sizeof(glm::vec4) * index, sizeof(glm::vec4),
-                         glm::value_ptr(pos));
 }
 
 void Renderer::create_ubos() {
@@ -281,6 +286,71 @@ void Renderer::draw_skybox() {
 
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glDepthFunc(GL_LESS);
+}
+
+void Renderer::create_rect_pass() {
+    m_rect_pass.capacity = 1024;
+    m_rect_pass.current_count = 0;
+
+    m_rect_pass.pipeline.init();
+    m_rect_pass.vertex_buffer.init(sizeof(RectVertex) * m_rect_pass.capacity * 6, 3);
+
+    std::array<VertexAttributeDescriptor, 2> attribs = {
+        VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
+                                  .count = 2,
+                                  .offset = offsetof(RectVertex, pos)},
+        VertexAttributeDescriptor{.type = VertexAttributeDescriptor::Type::f32,
+                                  .count = 4,
+                                  .offset = offsetof(RectVertex, color)}};
+    m_rect_pass.pipeline.add_vertex_buffer_from_buffer(attribs, sizeof(RectVertex),
+                                                       m_rect_pass.vertex_buffer.m_handle);
+    m_rect_pass.pipeline.add_vertex_shader("shaders/SPIRV/rect.vert.spv");
+    m_rect_pass.pipeline.add_fragment_shader("shaders/SPIRV/rect.frag.spv");
+    m_rect_pass.pipeline.compile();
+}
+
+void Renderer::begin_rect_pass() {
+    glDisable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    m_rect_pass.pipeline.bind();
+    m_rect_pass.vertex_buffer.new_frame();
+}
+
+void Renderer::draw_rect(const Rect &rect, const glm::vec4 &color) {
+    if (m_rect_pass.current_count + 1 > m_rect_pass.capacity) {
+        ERROR("Cannot draw anymore rectangles. Rectangle pass vertex buffer is full!");
+        return;
+    }
+    std::array<RectVertex, 6> vertices = {
+        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x + rect.width, rect.y},
+                   .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x + rect.width, rect.y + rect.height},
+                   .color = {color.x, color.y, color.z, color.w}},
+
+        RectVertex{.pos = {rect.x, rect.y}, .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x + rect.width, rect.y + rect.height},
+                   .color = {color.x, color.y, color.z, color.w}},
+        RectVertex{.pos = {rect.x, rect.y + rect.height},
+                   .color = {color.x, color.y, color.z, color.w}},
+    };
+    m_rect_pass.vertex_buffer.write(
+        std::span((u8 *)vertices.data(), vertices.size() * sizeof(RectVertex)));
+    ++m_rect_pass.current_count;
+}
+
+void Renderer::end_rect_pass(u32 fb_width, u32 fb_height) {
+    u64 offset = m_rect_pass.vertex_buffer.get_current_region_offset();
+    assert(offset % sizeof(RectVertex) == 0);
+    u64 first = offset / sizeof(RectVertex);
+
+    auto proj = glm::ortho(0.0f, (f32)fb_width, (f32)fb_height, 0.0f);
+    glNamedBufferSubData(m_ubo_matrices_handle, 2 * sizeof(glm::mat4), sizeof(glm::mat4),
+                         glm::value_ptr(proj));
+
+    glDrawArrays(GL_TRIANGLES, first, m_rect_pass.current_count * 6);
+    m_rect_pass.current_count = 0;
 }
 
 void Renderer::draw_node(const NodeHierarchy &hierarchy, u32 node_index,
