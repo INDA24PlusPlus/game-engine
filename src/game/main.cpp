@@ -1,12 +1,13 @@
 #include "engine/Camera.h"
+#include <glad/glad.h>
 #include <GL/gl.h>
 #include <GLFW/glfw3.h>
 #include <cstdio>
-#include <glad/glad.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 #include <thread>
 
+#include "components.h"
 #include "engine/AssetLoader.h"
 #include "engine/Input.h"
 #include "engine/Renderer.h"
@@ -18,26 +19,21 @@
 #include "engine/ecs/resource.hpp"
 #include "engine/ecs/signature.hpp"
 #include "engine/ecs/system.hpp"
+#include "engine/network/client.hpp"
+#include "engine/network/network.hpp"
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
 #include "glm/detail/qualifier.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/quaternion_common.hpp"
 #include "glm/ext/quaternion_geometric.hpp"
-#include "engine/network/network.hpp"
-#include "engine/utils/logging.h"
-#include "glm/ext/matrix_transform.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "state.h"
+#include "time.h"
 #include "world_gen/map.h"
-
-class RDeltaTime : public Resource<RDeltaTime> {
-public:
-  f32 delta_time;
-  f32 prev_time;
-};
 
 class RInput : public Resource<RInput> {
 public:
@@ -61,44 +57,6 @@ public:
          engine::NodeHierarchy hierarchy)
       : m_scene(scene), m_camera(camera), m_hierarchy(hierarchy),
         m_window(window) {}
-};
-
-class CPlayer : public Component<CPlayer> {
-public:
-};
-
-class CLocal : public Component<CLocal> {
-public:
-};
-
-class CVelocity : public Component<CVelocity> {
-public:
-  glm::vec3 vel;
-};
-
-class CTranslation : public Component<CTranslation> {
-public:
-  glm::vec3 pos;
-  glm::quat rot;
-  glm::vec3 scale;
-};
-
-class CMesh : public Component<CMesh> {
-public:
-  engine::NodeHandle m_node;
-  CMesh(engine::NodeHandle node) : m_node(node) {}
-  CMesh() {}
-};
-
-class SDeltaTime : public System<SDeltaTime> {
-public:
-  SDeltaTime() {}
-
-  void update(ECS &ecs) {
-    auto time = ecs.get_resource<RDeltaTime>();
-    time->delta_time = glfwGetTime() - time->prev_time;
-    time->prev_time = glfwGetTime();
-  }
 };
 
 class SMove : public System<SMove> {
@@ -279,7 +237,6 @@ static void gen_world(engine::NodeHierarchy &hierarchy, engine::Scene &scene,
   }
 }
 
-
 int main(int argc, char **argv) {
   if (!glfwInit()) {
     fatal("Failed to initiliaze glfw");
@@ -355,42 +312,53 @@ int main(int argc, char **argv) {
   ecs.register_component<CTranslation>();
   ecs.register_component<CVelocity>();
   ecs.register_component<CMesh>();
-
-  // Register systems
-  INFO("Create systems");
-  auto move_system = ecs.register_system<SMove>();
-  auto render_system = ecs.register_system<SRender>();
-  auto local_move_system = ecs.register_system<SLocalMove>();
-  auto delat_time_system = ecs.register_system<SDeltaTime>();
+  ecs.register_component<COnline>();
 
   // Create local player
   INFO("Create player");
   Entity player = ecs.create_entity();
+    DEBUG("Add CPlayer");
   ecs.add_component<CPlayer>(player, CPlayer());
+    DEBUG("Add CTranslation");
   ecs.add_component<CTranslation>(
       player, CTranslation{.pos = glm::vec3(0.0f),
                            .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                            .scale = glm::vec3(1.0f)});
+    DEBUG("Add CVelocity");
   ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
 
+    DEBUG("Add player mesh");
   auto player_prefab = scene.prefab_by_name("Player");
   engine::NodeHandle player_node =
       hierarchy.instantiate_prefab(scene, player_prefab, engine::NodeHandle(0));
 
   ecs.add_component<CMesh>(player, CMesh(player_node));
 
+  // Register systems
+  INFO("Create systems");
+  auto move_system = ecs.register_system<SMove>();
+  auto render_system = ecs.register_system<SRender>();
+  auto local_move_system = ecs.register_system<SLocalMove>();
+  auto delta_time_system = ecs.register_system<SDeltaTime>();
+  // auto get_message_system = ecs.register_system<SGetMessage>();
+  // auto send_online_position_system = ecs.register_system<SSendOnlinePosition>();
+
   // Regisetr resources
+  INFO("Register resources");
   ecs.register_resource(new RInput(window));
   ecs.register_resource(new RRenderer(renderer));
   ecs.register_resource(new RScene(scene, camera, window, hierarchy));
   ecs.register_resource(new RDeltaTime());
+  ecs.register_resource(new RMultiplayerClient(argv[1], argv[2], ecs));
 
   INFO("Begin game loop");
   while (!glfwWindowShouldClose(window)) {
     // Update
-    delat_time_system->update(ecs);
+    delta_time_system->update(ecs);
     local_move_system->update(ecs);
     move_system->update(ecs);
+    // get_message_system->update(ecs);
+    // send_online_position_system->update(ecs);
     render_system->update(ecs);
   }
 }

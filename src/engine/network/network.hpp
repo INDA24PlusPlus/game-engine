@@ -6,17 +6,11 @@
 #define NUM_PLAYERS 2
 
 typedef struct {
-  float x;
-  float y;
-  float rot;
-} client_position;
-
-typedef struct {
   int id;
   float x;
   float y;
   float rot;
-} client_position_update;
+} client_position;
 
 typedef struct {
   int id;

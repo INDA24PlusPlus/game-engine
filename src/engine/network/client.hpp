@@ -1,5 +1,7 @@
 #pragma once
-// Server side implementation of UDP client-server model
+#include "engine/ecs/component.hpp"
+#include "engine/ecs/ecs.hpp"
+#include "engine/ecs/resource.hpp"
 #include "network.hpp"
 #include <arpa/inet.h>
 #include <bits/stdc++.h>
@@ -28,11 +30,34 @@ public:
 private:
   void get_positions();
 
-  int id;
-  u_int64_t seed;
   PlayerPosition players[NUM_PLAYERS];
-  sockaddr_in address;
-  int udp;
-  int tcp;
   std::thread get_thread;
+};
+
+class RMultiplayerClient : public Resource<RMultiplayerClient> {
+public:
+  RMultiplayerClient(char *server_address, char *server_port, ECS &ecs);
+
+  int player_id;
+  sockaddr_in server_address;
+  int udp_handle;
+  int tcp_handle;
+  std::thread get_thread;
+};
+
+class COnline : public Component<COnline> {
+public:
+  int id;
+};
+
+class SGetMessage : public System<SGetMessage> {
+public:
+  SGetMessage();
+  void update(ECS &ecs);
+};
+
+class SSendOnlinePosition : public System<SSendOnlinePosition> {
+public:
+  SSendOnlinePosition();
+  void update(ECS &ecs);
 };
