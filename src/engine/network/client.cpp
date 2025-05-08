@@ -100,11 +100,12 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
     auto online_player = ecs.create_entity();
     ecs.add_component<COnline>(online_player, COnline{.id = player.id});
     auto pos = glm::vec3(player.x, 0, player.z);
-    ecs.add_component<CTranslation>(online_player,
-                                    CTranslation{.pos = pos,
-                                                 .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
-                                                 .scale = glm::vec3(1)});
-    ecs.add_component<CVelocity>(online_player, CVelocity{.vel = glm::vec3(0.0f)});
+    ecs.add_component<CTranslation>(
+        online_player, CTranslation{.pos = pos,
+                                    .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                                    .scale = glm::vec3(1)});
+    ecs.add_component<CVelocity>(online_player,
+                                 CVelocity{.vel = glm::vec3(0.0f)});
     ecs.add_component<CPlayer>(online_player, CPlayer());
     ecs.add_component<CSpeed>(online_player, CSpeed());
     ecs.add_component<CHealth>(online_player, CHealth());
@@ -123,15 +124,24 @@ SGetMessage::SGetMessage() {
 }
 
 void add_new_player(ECS &ecs, int *buffer) {
+  auto scene = ecs.get_resource<RScene>();
   client_position *pos = (client_position *)(buffer + 1);
 
   auto new_player = ecs.create_entity();
-  ecs.add_component(new_player, COnline{.id = pos->id});
-  ecs.add_component(new_player,
-                    CTranslation{.pos = glm::vec3(pos->x, 0, pos->z),
-                                 .rot = glm::quat(1, 0, 0, 0),
-                                 .scale = glm::vec3(1)});
-  ecs.add_component(new_player, CVelocity{.vel = glm::vec3(0)});
+  ecs.add_component<COnline>(new_player, COnline{.id = pos->id});
+  auto position = glm::vec3(pos->x, 0, pos->z);
+  ecs.add_component<CTranslation>(
+      new_player, CTranslation{.pos = position,
+                               .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                               .scale = glm::vec3(1)});
+  ecs.add_component<CVelocity>(new_player, CVelocity{.vel = glm::vec3(0.0f)});
+  ecs.add_component<CPlayer>(new_player, CPlayer());
+  ecs.add_component<CSpeed>(new_player, CSpeed());
+  ecs.add_component<CHealth>(new_player, CHealth());
+  auto player_prefab = scene->m_scene.prefab_by_name("Player");
+  engine::NodeHandle player_node = scene->m_hierarchy.instantiate_prefab(
+      scene->m_scene, player_prefab, engine::NodeHandle(0));
+  ecs.add_component<CMesh>(new_player, CMesh(player_node));
 }
 
 void get_position(ECS &ecs, int *buffer, EntityArray *entities) {
@@ -145,7 +155,7 @@ void get_position(ECS &ecs, int *buffer, EntityArray *entities) {
                             i * (sizeof(client_position) / sizeof(int)));
 
     while (entities->next(it, e)) {
-      CTranslation &translation = ecs.get_component<CTranslation>(e);
+      auto &translation = ecs.get_component<CTranslation>(e);
       int id = ecs.get_component<COnline>(e).id;
 
       if (pos->id == id) {
@@ -191,17 +201,13 @@ void SSendOnlinePosition::update(ECS &ecs) {
   Entity e;
   while (entities->next(it, e)) {
     CTranslation &translation = ecs.get_component<CTranslation>(e);
-    struct {
-      message_type type;
-      client_position pos;
-    } message;
-    message.type = 1;
-    message.pos.id = client->player_id;
-    message.pos.x = translation.pos.x;
-    message.pos.z = translation.pos.z;
-    message.pos.rot = 0;
+    client_position pos;
+    pos.id = client->player_id;
+    pos.x = translation.pos.x;
+    pos.z = translation.pos.z;
+    pos.rot = 0;
 
-    sendto(client->udp_handle, (const char *)&message, sizeof(message),
+    sendto(client->udp_handle, (const char *)&pos, sizeof(client_position),
            MSG_CONFIRM, (const struct sockaddr *)&client->server_address,
            sizeof(client->server_address));
   }
