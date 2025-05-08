@@ -493,7 +493,6 @@ class SEnemyGhost : public System<SEnemyGhost> {
             CTranslation& nearest_player_translation = ECS::get_component<CTranslation>(nearest_player);
             CHealth& nearest_player_health = ECS::get_component<CHealth>(nearest_player);
             
-            
             // update enemy
             if (ghost.cooldown > 0) {
                 ghost.cooldown -= time->delta_time;
@@ -664,7 +663,9 @@ int main(void) {
     ECS::register_resource(new RRenderer(renderer));
     ECS::register_resource(new RScene(scene, camera, handle.window, hierarchy, player));
     ECS::register_resource(new RDeltaTime(glfwGetTime()));
-    ECS::register_resource(new RAudio());
+    ECS::register_resource(new RAudio(camera));
+
+    RAudio::add_source(CAudioSource("assets/sounds/ghost_strolling.wav"));
 
     INFO("Begin game loop");
     

@@ -4,11 +4,14 @@
 #include "engine/ecs/component.hpp"
 #include "engine/utils/logging.h"
 #include <cstdio>
-#include <filesystem>
 #include <cstring>
 #include <cstdio>
+#include <fstream>
+#include <ios>
+#include <memory>
 
 #define WAV_ENFORCE_VALID_CHUNK_ID(UNKNOWN_ID, ID) if (strncmp(UNKNOWN_ID, ID, 4)) {FATAL("Invalid chunk ID \"{:4}\", should be \"{:4}\"\n", UNKNOWN_ID, ID); }
+#define READ_FROM_STREAM(stream, dest) (stream)->read((char *) (&dest), sizeof(dest))
 
 struct wav_file_chunk {
     char chunk_id[4];
@@ -31,30 +34,23 @@ struct wav_file_data {
 
 class WavFile {
     public:
-        FILE * fp;
         struct wav_file_header header;
         struct wav_file_data data;
     public:
-        WavFile(const std::filesystem::path path)
-            : fp(fopen(path.c_str(), "rb"))
-        {
-            if (fp == NULL) {
-                FATAL("Unable to open file \"{}\"", path.root_path().c_str());
-            }
-
-            struct wav_file_chunk riff_chunk = get_chunk();
+        WavFile(std::shared_ptr<std::ifstream> &stream) {
+            struct wav_file_chunk riff_chunk = get_chunk(stream);
             WAV_ENFORCE_VALID_CHUNK_ID(riff_chunk.chunk_id, "RIFF");
 
             char format[4];
-            fread(&format, 1, sizeof(format), fp);
+            READ_FROM_STREAM(stream, format);
             WAV_ENFORCE_VALID_CHUNK_ID(format, "WAVE");
 
-            struct wav_file_chunk fmt_chunk = get_chunk();
+            struct wav_file_chunk fmt_chunk = get_chunk(stream);
             WAV_ENFORCE_VALID_CHUNK_ID(fmt_chunk.chunk_id, "fmt ");
 
-            fread(&header, 1, sizeof(header), fp);
-            // check that header is correctly formatted
+            READ_FROM_STREAM(stream, header);
 
+            // check that header is correctly formatted
             if (!(header.block_align == (header.num_channels * header.bits_per_sample / 8) &&
                     header.byte_rate == (header.sample_rate * header.block_align))) {
                 FATAL("¿Corrupt? .wav format section");
@@ -66,22 +62,22 @@ class WavFile {
 
             if (fmt_chunk.chunk_size == 18 || fmt_chunk.chunk_size == 40) {
                 uint16_t extension_size;
-                fread(&extension_size, 1, sizeof(extension_size), fp);
-                fseek(fp, extension_size, SEEK_CUR);
+                READ_FROM_STREAM(stream, extension_size);
+                stream->seekg(extension_size, std::ios::cur);
             } else if (fmt_chunk.chunk_size != 16) {
                 FATAL("Invalid .wav file");
             }
 
-            struct wav_file_chunk data_chunk = get_chunk();
+            struct wav_file_chunk data_chunk = get_chunk(stream);
             WAV_ENFORCE_VALID_CHUNK_ID(data_chunk.chunk_id, "data");
 
             data.size = data_chunk.chunk_size;
-            data.file_offset = ftell(fp);
+            data.file_offset = static_cast<u32>(stream->tellg());
         };
     private:
-        struct wav_file_chunk get_chunk() {
+        struct wav_file_chunk get_chunk(std::shared_ptr<std::ifstream> &stream) {
             struct wav_file_chunk chunk;
-            fread(&chunk, 1, sizeof(chunk), fp);
+            stream->read((char *)&chunk, sizeof(chunk));
             return chunk;
         }
 };

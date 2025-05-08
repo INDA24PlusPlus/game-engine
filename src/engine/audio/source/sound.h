@@ -1,74 +1,56 @@
 #pragma once
+#include <algorithm>
+#include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <memory>
 #include <miniaudio.h>
+#include <filesystem>
+#include <utility>
 
+#include "engine/audio/source/wav.h"
 #include "engine/core.h"
 #include "engine/ecs/component.hpp"
-#include "engine/utils/logging.h"
 #include "engine/audio/constants.h"
+#include "engine/utils/logging.h"
 
 enum SoundStreamReadType { Append, Overwrite };
 
 class CSoundData : public Component<CSoundData> {
     private:
-        FILE * fp;
-        u32 index = 0;
-        u32 read_end_index = 0;
+        std::shared_ptr<std::ifstream> stream = nullptr;
         u32 file_data_offset;
         u32 size;
-        SOUND_BUF_TYPE buf[MAX_SOUND_BUF_SIZE] = {0};
     public:
         CSoundData() {};
-        CSoundData(FILE * fp, u32 file_data_offset, u32 size) : fp(fp), file_data_offset(file_data_offset), size(size) {
-            read(SoundStreamReadType::Overwrite);
-        }
-
-        void read(enum SoundStreamReadType readtype) {
-            if (readtype == SoundStreamReadType::Append && index < read_end_index) {
-                // Move the elements left in the buffer to the front of the buffer
-                memmove(buf, &buf[index], (read_end_index - index) * sizeof(SOUND_BUF_TYPE));
-                read_end_index -= index;
-
-                // Get the amount of free space after the non-read buffered data
-                size_t free_space = size - read_end_index;
-
-                // Fill the remainder of the buffer
-                read_end_index += fread(&buf[read_end_index], sizeof(SOUND_BUF_TYPE), free_space, fp);
-            } else if (readtype == SoundStreamReadType::Overwrite) {
-                read_end_index = fread(buf, sizeof(SOUND_BUF_TYPE), MAX_SOUND_BUF_SIZE, fp);
-            } else {
-                FATAL("Invalid CSoundData::read!");
+        CSoundData(const std::filesystem::path path) {
+            stream = std::make_shared<std::ifstream>(path, std::ios_base::binary);
+            
+            if (!stream->is_open() || !(*stream)) {
+                FATAL("Unable to open file: {}", path.c_str());
             }
 
-            // Check 
-            if (read_end_index < size && feof(fp) == EOF) {
-                ERROR("An error occured while reading sound data");
-            } 
-
-            index = 0;
+            auto wav = WavFile(stream);
+            this->file_data_offset = wav.data.file_offset;
+            this->size = wav.data.size;
         }
 
-        void update_index(u32 index) {
-            this->index += index;
+        CSoundData(const CSoundData&) = default;
+        CSoundData& operator=(CSoundData&&) = default;
+        CSoundData& operator=(const CSoundData&) = default;
+
+        inline bool read(SOUND_BUF_TYPE * buf, size_t samples_to_read) {
+            if (stream->eof()) {
+                FATAL("Read EOF");
+            }
+
+            stream->read((char *)buf, samples_to_read * sizeof(SOUND_BUF_TYPE));
+            return (u32)stream->gcount() < samples_to_read * sizeof(SOUND_BUF_TYPE);
         }
 
         void set_playback(u32 offset) {
-            index = 0;
-            read_end_index = 0;
-            fseek(fp, file_data_offset + offset * CHANNELS, SEEK_SET);
-            read(SoundStreamReadType::Overwrite);
-        }
-
-        inline SOUND_BUF_TYPE at_offset(size_t offset) {
-            return buf[index + offset];
-        }
-
-        inline u32 get_free_space() {
-            return size - read_end_index;
-        }
-
-        inline u32 get_remaining_frames() {
-            return read_end_index - index;
+            stream->seekg(file_data_offset + offset * CHANNELS, std::ios::beg);
         }
 };
