@@ -74,8 +74,6 @@ void SGetPositions::update(ECS &ecs) {
     return;
   }
 
-  DEBUG("Get pos");
-
   auto entities = get_query(0)->get_entities();
   Iterator it = {.next = 0};
   Entity e;
@@ -102,7 +100,6 @@ void SSendPositions::update(ECS &ecs) {
   Iterator it = {.next = 0};
   Entity e;
   while (entities->next(it, e)) {
-    DEBUG("Send pos");
     auto client = ecs.get_component<CClient>(e);
     Iterator send_it = {.next = 0};
     Entity send;
@@ -202,6 +199,11 @@ void SAcceptClients::update(ECS &ecs) {
 
   // Populate initial positions for other players
   while (to_send->next(send_it, send_e)) {
+    auto player = ecs.get_component<CClient>(send_e);
+    init_message.pos[i].id = player.id;
+    init_message.pos[i].x = player.x;
+    init_message.pos[i].z = player.z;
+    init_message.pos[i].rot = player.rot;
     i++;
   }
 
@@ -215,11 +217,9 @@ void SAcceptClients::update(ECS &ecs) {
     exit(EXIT_FAILURE);
   }
 
-  auto new_player = ecs.create_entity();
-  ecs.add_component(new_player, client);
-
   send_it = {.next = 0};
   while (to_send->next(send_it, send_e)) {
+    INFO("Inform about new player");
     auto client = ecs.get_component<CClient>(send_e);
     struct {
       message_type type;
@@ -235,5 +235,9 @@ void SAcceptClients::update(ECS &ecs) {
            sizeof(message_type) + sizeof(client_position), MSG_CONFIRM,
            (const struct sockaddr *)&client.address, sizeof(client.address));
   }
+
+  auto new_player = ecs.create_entity();
+  ecs.add_component(new_player, client);
+
   INFO("Client created");
 }

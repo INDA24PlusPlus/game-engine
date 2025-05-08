@@ -9,6 +9,7 @@
 #include "../ecs/signature.hpp"
 #include "../ecs/system.hpp"
 #include "engine/network/server.hpp"
+#include "engine/scene/Node.h"
 #include "engine/utils/logging.h"
 #include "network.hpp"
 #include <cstdio>
@@ -19,10 +20,12 @@
 #include <sys/socket.h>
 #include <thread>
 
+#include "game/state.h"
 #include <glad/glad.h>
 
 RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
                                        ECS &ecs) {
+  auto scene = ecs.get_resource<RScene>();
   srand(time(0));
   // Creating socket file descriptor
   if ((this->tcp_handle = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -77,22 +80,37 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
   struct {
     new_player_id id;
     number_of_players num_players;
-    client_position pos[NUM_PLAYERS];
   } init_message;
 
   INFO("Aquiering game state\n");
-  if (recv(this->tcp_handle, (char *)&init_message, sizeof(init_message), 0) < 0) {
+  if (recv(this->tcp_handle, (char *)&init_message,
+           sizeof(new_player_id) + sizeof(number_of_players), 0) < 0) {
     ERROR("failed to get initial state");
     exit(EXIT_FAILURE);
   }
 
   this->player_id = init_message.id;
 
+  INFO("Adding other players");
   for (int i = 0; i < init_message.num_players; i++) {
+
+    client_position player;
+    recv(this->tcp_handle, (char *)&player, sizeof(client_position), 0);
     auto online_player = ecs.create_entity();
-    ecs.add_component(online_player, COnline{.id = i});
-    auto pos = glm::vec3(0);
-    ecs.add_component(online_player, CTranslation{.pos = pos});
+    ecs.add_component<COnline>(online_player, COnline{.id = player.id});
+    auto pos = glm::vec3(player.x, 0, player.z);
+    ecs.add_component<CTranslation>(online_player,
+                                    CTranslation{.pos = pos,
+                                                 .rot = glm::quat(1, 0, 0, 0),
+                                                 .scale = glm::vec3(1)});
+    ecs.add_component<CVelocity>(online_player, CVelocity{.vel = glm::vec3(0)});
+    ecs.add_component<CPlayer>(online_player, CPlayer());
+    ecs.add_component<CSpeed>(online_player, CSpeed());
+    ecs.add_component<CHealth>(online_player, CHealth());
+    auto player_prefab = scene->m_scene.prefab_by_name("Player");
+    engine::NodeHandle player_node = scene->m_hierarchy.instantiate_prefab(
+        scene->m_scene, player_prefab, engine::NodeHandle(0));
+    ecs.add_component<CMesh>(online_player, CMesh(player_node));
   }
 
   INFO("id: %d\n", init_message.id);
@@ -104,6 +122,7 @@ SGetMessage::SGetMessage() {
 }
 
 void add_new_player(ECS &ecs, RMultiplayerClient *client) {
+  INFO("New player joined");
   client_position buffer;
   if (recv(client->udp_handle, &buffer, sizeof(client_position), 0) < 0) {
     return;

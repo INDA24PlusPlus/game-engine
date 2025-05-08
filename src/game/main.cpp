@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
-#include <thread>
+#include <sys/socket.h>
 
 #include "components.h"
 #include "engine/AssetLoader.h"
@@ -80,42 +80,6 @@ public:
   RRenderer(engine::Renderer renderer) : m_renderer(renderer) {}
 };
 
-class RScene : public Resource<RScene> {
-public:
-  engine::Scene m_scene;
-  engine::Camera m_camera;
-  engine::NodeHierarchy m_hierarchy;
-  GLFWwindow *m_window;
-  Entity m_player; // temporary way of getting the player in singleplayer
-  RScene(engine::Scene scene, engine::Camera camera, GLFWwindow *window,
-         engine::NodeHierarchy hierarchy, Entity player)
-      : m_scene(scene), m_camera(camera), m_hierarchy(hierarchy),
-        m_window(window), m_player(player) {}
-};
-
-class CSpeed : public Component<CSpeed> {
-public:
-  float speed = 10;
-};
-
-class CHealth : public Component<CHealth> {
-public:
-  float health = 100;
-
-  void take_damage(float damage) {
-    health -= damage;
-    if (health < 0.0f) {
-      health = 0.0f;
-    }
-  }
-
-  bool is_alive() { return health > 0.0f; }
-};
-
-class CEnemyGhost : public Component<CEnemyGhost> {
-public:
-  float cooldown = 0.0f;
-};
 
 class SDeltaTime : public System<SDeltaTime> {
 public:
@@ -604,6 +568,7 @@ int main(int argc, char **argv) {
   ecs.register_component<CTranslation>();
   ecs.register_component<CVelocity>();
   ecs.register_component<CMesh>();
+  ecs.register_component<COnline>();
 
   // Register systems
   INFO("Create systems");
@@ -615,9 +580,8 @@ int main(int argc, char **argv) {
   auto delta_time_system = ecs.register_system<SDeltaTime>();
   auto enemy_ghost_system = ecs.register_system<SEnemyGhost>();
   auto input_system = ecs.register_system<SInput>();
-  // auto get_message_system = ecs.register_system<SGetMessage>();
-  // auto send_online_position_system =
-  // ecs.register_system<SSendOnlinePosition>();
+  auto get_message_system = ecs.register_system<SGetMessage>();
+  auto send_online_position_system = ecs.register_system<SSendOnlinePosition>();
 
   // Create local player
   INFO("Create player");
@@ -664,8 +628,6 @@ int main(int argc, char **argv) {
   ecs.register_resource(new RDeltaTime(glfwGetTime()));
   ecs.register_resource(new RMultiplayerClient(argv[1], argv[2], ecs));
 
-
-
   INFO("Begin game loop");
 
   while (!glfwWindowShouldClose(window)) {
@@ -679,6 +641,9 @@ int main(int argc, char **argv) {
 
     input_system->update(ecs); // stores this frames keys as previous frames
                                // keys (do this last, before draw)
+
+    get_message_system->update(ecs);
+    send_online_position_system->update(ecs);
 
     // Draw
     render_system->update(ecs);    // handle rendering

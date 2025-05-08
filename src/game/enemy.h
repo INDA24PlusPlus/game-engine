@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/ecs/component.hpp"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
 
@@ -20,4 +21,9 @@ struct Enemy {
     void update(State &state);
     void take_damage(float damage);
     bool is_alive() const;
+};
+
+class CEnemyGhost : public Component<CEnemyGhost> {
+public:
+  float cooldown = 0.0f;
 };
