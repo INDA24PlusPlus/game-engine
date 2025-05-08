@@ -10,6 +10,8 @@
 #include "engine/Input.h"
 #include "engine/Renderer.h"
 #include "engine/audio/audio.h"
+#include "engine/audio/source/source.h"
+#include "engine/audio/source/wav.h"
 #include "engine/core.h"
 #include "engine/ecs/component.hpp"
 #include "engine/ecs/ecs.hpp"
@@ -130,8 +132,8 @@ class SDeltaTime : public System<SDeltaTime> {
 public:
     SDeltaTime() {}
 
-    void update(ECS &ecs) {
-        auto time = ecs.get_resource<RDeltaTime>();
+    void update() {
+        auto time = ECS::get_resource<RDeltaTime>();
         time->delta_time = glfwGetTime() - time->prev_time;
         time->prev_time = glfwGetTime();
     }
@@ -144,13 +146,13 @@ public:
         query_count = 1;
     }
 
-    void update(ECS &ecs) {
+    void update() {
         auto entities = get_query(0)->get_entities();
         Iterator it = {.next = 0};
         Entity e;
         while (entities->next(it, e)) {
-            CTranslation &translation = ecs.get_component<CTranslation>(e);
-            CVelocity& vel = ecs.get_component<CVelocity>(e);
+            CTranslation &translation = ECS::get_component<CTranslation>(e);
+            CVelocity& vel = ECS::get_component<CVelocity>(e);
             translation.pos += vel.vel;
             vel.vel = glm::vec3(0);
         }
@@ -161,10 +163,10 @@ class SUIRender : public System<SUIRender> {
 public:
     SUIRender(){}
 
-    void update(ECS &ecs) {
-        auto time = ecs.get_resource<RDeltaTime>();
-        auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
-        auto scene = ecs.get_resource<RScene>();
+    void update() {
+        auto time = ECS::get_resource<RDeltaTime>();
+        auto renderer = &ECS::get_resource<RRenderer>()->m_renderer;
+        auto scene = ECS::get_resource<RScene>();
         auto window = scene->m_window;
         
         int height;
@@ -175,7 +177,7 @@ public:
 
         // TODO: Get nearest player instead of only player in single player
         Entity& nearest_player = scene->m_player;
-        CHealth& nearest_player_health = ecs.get_component<CHealth>(nearest_player);
+        CHealth& nearest_player_health = ECS::get_component<CHealth>(nearest_player);
 
         // Draw
         renderer->begin_rect_pass();
@@ -230,9 +232,9 @@ public:
         query_count = 1;
     }
 
-    void update(ECS &ecs) {
-        auto renderer = &ecs.get_resource<RRenderer>()->m_renderer;
-        auto scene = ecs.get_resource<RScene>();
+    void update() {
+        auto renderer = &ECS::get_resource<RRenderer>()->m_renderer;
+        auto scene = ECS::get_resource<RScene>();
         auto hierarchy = scene->m_hierarchy;
         auto camera = scene->m_camera;
         auto window = scene->m_window;
@@ -243,8 +245,8 @@ public:
         Iterator it = {.next = 0};
         Entity e;
         while (entities->next(it, e)) {
-            auto translation = ecs.get_component<CTranslation>(e);
-            auto mesh = ecs.get_component<CMesh>(e);
+            auto translation = ECS::get_component<CTranslation>(e);
+            auto mesh = ECS::get_component<CMesh>(e);
             hierarchy.m_nodes[mesh.m_node.get_value()].translation = translation.pos;
             hierarchy.m_nodes[mesh.m_node.get_value()].rotation = translation.rot;
             hierarchy.m_nodes[mesh.m_node.get_value()].scale = translation.scale;
@@ -268,19 +270,19 @@ public:
         query_count = 1;
     }
 
-    void update(ECS &ecs) {
+    void update() {
         //INFO("debug");
-        auto time = ecs.get_resource<RDeltaTime>();
-        auto scene = ecs.get_resource<RScene>();
-        engine::Input& input = ecs.get_resource<RInput>()->m_input;
-        Settings settings = ecs.get_resource<RInput>()->settings;
+        auto time = ECS::get_resource<RDeltaTime>();
+        auto scene = ECS::get_resource<RScene>();
+        engine::Input& input = ECS::get_resource<RInput>()->m_input;
+        Settings settings = ECS::get_resource<RInput>()->settings;
         engine::Camera& camera = scene->m_camera;
         auto window = scene->m_window;
         auto local_player = get_query(0)->get_entities()->first();
-        CVelocity &local_vel = ecs.get_component<CVelocity>(*local_player);
-        float& player_speed = ecs.get_component<CSpeed>(*local_player).speed;
+        CVelocity &local_vel = ECS::get_component<CVelocity>(*local_player);
+        float& player_speed = ECS::get_component<CSpeed>(*local_player).speed;
         CTranslation &local_translation =
-            ecs.get_component<CTranslation>(*local_player);
+            ECS::get_component<CTranslation>(*local_player);
 
         // mouse locking
         bool mouse_locked = glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
@@ -352,24 +354,24 @@ class SEnemyGhost : public System<SEnemyGhost> {
         query_count = 1;
     }
 
-    void update(ECS &ecs) {
-        auto time = ecs.get_resource<RDeltaTime>();
-        auto scene = ecs.get_resource<RScene>();
+    void update() {
+        auto time = ECS::get_resource<RDeltaTime>();
+        auto scene = ECS::get_resource<RScene>();
         
         auto entities = get_query(0)->get_entities();
         Iterator it = {.next = 0};
         Entity e;
         while (entities->next(it, e)) {
-            CTranslation &translation = ecs.get_component<CTranslation>(e);
-            CVelocity& vel = ecs.get_component<CVelocity>(e);
-            CEnemyGhost& ghost = ecs.get_component<CEnemyGhost>(e);
-            float& speed = ecs.get_component<CSpeed>(e).speed;
-            //float& health = ecs.get_component<CHealth>(e).health;
+            CTranslation &translation = ECS::get_component<CTranslation>(e);
+            CVelocity& vel = ECS::get_component<CVelocity>(e);
+            CEnemyGhost& ghost = ECS::get_component<CEnemyGhost>(e);
+            float& speed = ECS::get_component<CSpeed>(e).speed;
+            //float& health = ECS::get_component<CHealth>(e).health;
             
             // TODO: Get nearest player instead of only player in single player
             Entity& nearest_player = scene->m_player;
-            CTranslation& nearest_player_translation = ecs.get_component<CTranslation>(nearest_player);
-            CHealth& nearest_player_health = ecs.get_component<CHealth>(nearest_player);
+            CTranslation& nearest_player_translation = ECS::get_component<CTranslation>(nearest_player);
+            CHealth& nearest_player_health = ECS::get_component<CHealth>(nearest_player);
             
             
             // update enemy
@@ -480,9 +482,6 @@ int main(void) {
 
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // Create ECS
-    ECS ecs = ECS();
-
     // Register resources
     INFO("Create resources");
     engine::Scene scene;
@@ -516,75 +515,79 @@ int main(void) {
 
     // Register componets
     INFO("Create componets");
-    ecs.register_component<CPlayer>();
-    ecs.register_component<CSpeed>();
-    ecs.register_component<CHealth>();
-    ecs.register_component<CEnemyGhost>();
-    ecs.register_component<CTranslation>();
-    ecs.register_component<CVelocity>();
-    ecs.register_component<CMesh>();
+    ECS::register_component<CPlayer>();
+    ECS::register_component<CSpeed>();
+    ECS::register_component<CHealth>();
+    ECS::register_component<CEnemyGhost>();
+    ECS::register_component<CTranslation>();
+    ECS::register_component<CVelocity>();
+    ECS::register_component<CMesh>();
 
     // Register systems
     INFO("Create systems");
-    auto move_system = ecs.register_system<SMove>();
-    auto render_system = ecs.register_system<SRender>();
-    auto ui_render_system = ecs.register_system<SUIRender>();
-    auto local_move_system = ecs.register_system<SLocalMove>();
-    auto delta_time_system = ecs.register_system<SDeltaTime>();
-    auto enemy_ghost_system = ecs.register_system<SEnemyGhost>();
+    auto move_system = ECS::register_system<SMove>();
+    auto render_system = ECS::register_system<SRender>();
+    auto ui_render_system = ECS::register_system<SUIRender>();
+    auto local_move_system = ECS::register_system<SLocalMove>();
+    auto delta_time_system = ECS::register_system<SDeltaTime>();
+    auto enemy_ghost_system = ECS::register_system<SEnemyGhost>();
 
     // Create local player
     INFO("Create player");
-    Entity player = ecs.create_entity();
-    ecs.add_component<CPlayer>(player, CPlayer());
-    ecs.add_component<CSpeed>(player, CSpeed());
-    ecs.add_component<CHealth>(player, CHealth());
-    ecs.add_component<CTranslation>(
+    Entity player = ECS::create_entity();
+    ECS::add_component<CPlayer>(player, CPlayer());
+    ECS::add_component<CSpeed>(player, CSpeed());
+    ECS::add_component<CHealth>(player, CHealth());
+    ECS::add_component<CTranslation>(
         player, CTranslation{.pos = glm::vec3(0.0f),
                             .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                             .scale = glm::vec3(1.0f)});
-    ecs.add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
+    ECS::add_component<CVelocity>(player, CVelocity{.vel = glm::vec3(0.0f)});
 
     auto player_prefab = scene.prefab_by_name("Player");
     engine::NodeHandle player_node =
         hierarchy.instantiate_prefab(scene, player_prefab, engine::NodeHandle(0));
     
-    ecs.add_component<CMesh>(player, CMesh(player_node));
+    ECS::add_component<CMesh>(player, CMesh(player_node));
     
     // Create ghosts
     auto ghost_prefab = scene.prefab_by_name("Ghost");
     for (int i = 0; i < 2; i++) {
-        Entity ghost = ecs.create_entity();
+        Entity ghost = ECS::create_entity();
         engine::NodeHandle ghost_node =
             hierarchy.instantiate_prefab(scene, ghost_prefab, engine::NodeHandle(0));
-        ecs.add_component<CEnemyGhost>(ghost, CEnemyGhost{.cooldown = 0.0f});
-        ecs.add_component<CSpeed>(ghost, CSpeed{.speed = (float)(3 + i)});
-        ecs.add_component<CHealth>(ghost, CHealth());
-        ecs.add_component<CTranslation>(ghost, CTranslation{
+        ECS::add_component<CEnemyGhost>(ghost, CEnemyGhost{.cooldown = 0.0f});
+        ECS::add_component<CSpeed>(ghost, CSpeed{.speed = (float)(3 + i)});
+        ECS::add_component<CHealth>(ghost, CHealth());
+        ECS::add_component<CTranslation>(ghost, CTranslation{
             .pos = glm::vec3(10.0f, 0.0f, i * 10.0f),
             .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
             .scale = glm::vec3(1.0f),
         });
-        ecs.add_component<CVelocity>(ghost, CVelocity());
-        ecs.add_component<CMesh>(ghost, CMesh(ghost_node));
+        ECS::add_component<CVelocity>(ghost, CVelocity());
+        ECS::add_component<CMesh>(ghost, CMesh(ghost_node));
     }
 
     // Register resources
-    ecs.register_resource(new RInput(window));
-    ecs.register_resource(new RRenderer(renderer));
-    ecs.register_resource(new RScene(scene, camera, window, hierarchy, player));
-    ecs.register_resource(new RDeltaTime(glfwGetTime()));
-    ecs.register_resource(new Audio(&ecs));
+    ECS::register_resource(new RInput(window));
+    ECS::register_resource(new RRenderer(renderer));
+    ECS::register_resource(new RScene(scene, camera, window, hierarchy, player));
+    ECS::register_resource(new RDeltaTime(glfwGetTime()));
+    auto * audio = ECS::register_resource(new RAudio());
+    DEBUG("Audio registered");
+
+    audio->add_source(CAudioSource("../audio/assets/suzume-ost.wav"));
+    DEBUG("Added source");
 
     INFO("Begin game loop");
     while (!glfwWindowShouldClose(window)) {
         // Update
-        delta_time_system->update(ecs);     // updates delta_time
-        local_move_system->update(ecs);     // movement and camera control over client/local player
-        enemy_ghost_system->update(ecs);    // enemy ghost movement and stuff
-        move_system->update(ecs);           // moves entities with velocity
-        render_system->update(ecs);         // handle rendering
-        ui_render_system->update(ecs);      // handle rendering of UI
+        delta_time_system->update();     // updates delta_time
+        // local_move_system->update();     // movement and camera control over client/local player
+        // enemy_ghost_system->update();    // enemy ghost movement and stuff
+        move_system->update();           // moves entities with velocity
+        render_system->update();         // handle rendering
+        ui_render_system->update();      // handle rendering of UI
 
         glfwSwapBuffers(window);
     }
