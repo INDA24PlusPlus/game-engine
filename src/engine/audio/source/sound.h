@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <cstring>
 #include <miniaudio.h>
-#include <strings.h>
 
 #include "engine/core.h"
 #include "engine/ecs/component.hpp"

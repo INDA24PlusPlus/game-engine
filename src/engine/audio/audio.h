@@ -11,12 +11,6 @@
 #include "engine/audio/source/source.h"
 #include "engine/utils/logging.h"
 #include "engine/audio/listener/device.h"
-#include "engine/utils/timer.h"
-
-class CMAContext : public Component<CMAContext> {
-    public:
-        ma_context context;
-};
 
 class SAudioManager : public System<SAudioManager> {
     private:
@@ -55,29 +49,23 @@ static void data_callback(ma_device * pDevice, void * pOutput, const void * _, m
 
 class RAudio : public Resource<RAudio> {
     private:
-        Entity m_context = ECS::create_entity();
+        ma_context context;
 
         CAudioDevice device;
         SAudioManager * manager = ECS::register_system<SAudioManager>();
     public:
         RAudio() {
-            ECS::register_component<CMAContext>();
-            ECS::add_component(m_context, CMAContext());
-            auto &context = ECS::get_component<CMAContext>(m_context);
-
-            if (ma_context_init(NULL, 0, NULL, &context.context) != MA_SUCCESS) {
+            if (ma_context_init(NULL, 0, NULL, &context) != MA_SUCCESS) {
                 FATAL("Unable to initialize miniaudio context");
             }
 
-            ma_device_info default_device = get_default_device(get_available_devices(&context.context));
-            device = CAudioDevice(&context.context, default_device, &data_callback);
+            ma_device_info default_device = get_default_device(get_available_devices(&context));
+            device = CAudioDevice(&context, default_device, &data_callback);
         }
 
         void set_device(ma_device_info device_info) {
             device.deinit();
-
-            auto &context = ECS::get_component<CMAContext>(m_context);
-            device = CAudioDevice(&context.context, device_info, &data_callback);
+            device = CAudioDevice(&context, device_info, &data_callback);
         }
 
         static void add_source(CAudioSource source) {
