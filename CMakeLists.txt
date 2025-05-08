@@ -25,6 +25,7 @@ set(SOURCE_FILES
     src/engine/ecs/systemmanager.cpp
     src/engine/AssetLoader.cpp
     src/engine/Input.cpp
+    src/engine/Prefs.cpp
     src/engine/scene/Scene.cpp
     src/engine/scene/Node.cpp
     src/engine/scene/AssetManifest.cpp
