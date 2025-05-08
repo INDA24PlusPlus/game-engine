@@ -19,6 +19,7 @@
 #include "engine/scene/Node.h"
 #include "engine/scene/Scene.h"
 #include "engine/utils/logging.h"
+#include "engine/Game.h"
 #include "glm/detail/qualifier.hpp"
 #include "glm/ext/quaternion_common.hpp"
 #include "glm/ext/quaternion_geometric.hpp"
@@ -574,39 +575,7 @@ static void gen_world(engine::NodeHierarchy &hierarchy, engine::Scene &scene, en
 }
 
 int main(void) {
-    if (!glfwInit()) {
-        fatal("Failed to initiliaze glfw");
-    }
-    INFO("Initialized GLFW");
-    glfwSetErrorCallback(error_callback);
-
-    f32 content_x_scale;
-    f32 content_y_scale;
-    glfwGetMonitorContentScale(glfwGetPrimaryMonitor(), &content_x_scale,
-                                &content_y_scale);
-    INFO("Monitor content scale is ({}, {})", content_x_scale, content_y_scale);
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-    glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 8);
-#ifndef NDEBUG
-    glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
-#else
-    glfwWindowHint(GLFW_CONTEXT_NO_ERROR, GLFW_TRUE);
-#endif
-
-    f32 content_scale = std::max(content_x_scale, content_y_scale);
-    auto window = glfwCreateWindow(1920 / content_scale, 1080 / content_scale,
-                                "Skeletal Animation", nullptr, nullptr);
-    if (!window) {
-        fatal("Failed to create glfw window");
-    }
-
-    glfwMakeContextCurrent(window);
-
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    auto handle = game::init(1920, 1080, "Game");
 
     // Create ECS
     ECS ecs = ECS();
@@ -614,7 +583,7 @@ int main(void) {
     // Register resources
     INFO("Create resources");
     engine::Scene scene;
-    engine::Input input(window);
+    engine::Input input(handle.window);
     engine::NodeHierarchy hierarchy;
 
     engine::NodeHandle root_node = hierarchy.add_root_node({
@@ -636,9 +605,9 @@ int main(void) {
 
     int width;
     int height;
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(handle.window, &width, &height);
     glViewport(0, 0, width, height);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(handle.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     gen_world(hierarchy, scene, root_node);
 
@@ -701,14 +670,14 @@ int main(void) {
     }
 
     // Register resources
-    ecs.register_resource(new RInput(window));
+    ecs.register_resource(new RInput(handle.window));
     ecs.register_resource(new RRenderer(renderer));
-    ecs.register_resource(new RScene(scene, camera, window, hierarchy, player));
+    ecs.register_resource(new RScene(scene, camera, handle.window, hierarchy, player));
     ecs.register_resource(new RDeltaTime(glfwGetTime()));
 
     INFO("Begin game loop");
     
-    while (!glfwWindowShouldClose(window)) {
+    while (game::should_run(handle)) {
         // Update
         delta_time_system->update(ecs);         // updates delta_time
         player_controller_system->update(ecs);  // player controller for local player(movement and stuff)
@@ -723,6 +692,6 @@ int main(void) {
         ui_render_system->update(ecs);          // handle rendering of UI
 
 
-        glfwSwapBuffers(window);
+       game::end_frame(handle);
     }
 }

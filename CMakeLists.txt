@@ -34,6 +34,7 @@ set(SOURCE_FILES
     src/engine/graphics/Image.cpp
     src/engine/graphics/Sampler.cpp
     src/engine/graphics/GPURingBuffer.cpp
+    src/engine/Game.cpp
     vendor/glad/src/glad.c
 )
 
