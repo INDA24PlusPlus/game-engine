@@ -7,8 +7,7 @@ EntityManager::EntityManager() : available_entities(MAX_ENTITIES) {
     }
 }
 
-EntityManager::~EntityManager() {
-}
+EntityManager::~EntityManager() {}
 
 Entity EntityManager::create_entity() {
     Entity entity = available_entities.pop();

@@ -7,6 +7,8 @@
 #include "component.hpp"
 #include "systemmanager.hpp"
 
+#define ECS_DEBUGGING
+
 class ECS {
     private:
         static EntityManager entity_manager;

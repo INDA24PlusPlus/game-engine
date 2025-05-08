@@ -36,7 +36,7 @@ set(SOURCE_FILES
     vendor/glad/src/glad.c
 )
 
-set(COMMON_COMPILE_FLAGS -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -g)
+set(COMMON_COMPILE_FLAGS -Ofast -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -g)
 
 FetchContent_Declare(
     glm

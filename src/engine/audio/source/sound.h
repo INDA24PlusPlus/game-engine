@@ -21,12 +21,14 @@ class CSoundData : public Component<CSoundData> {
         SOUND_BUF_TYPE buf[MAX_SOUND_BUF_SIZE] = {0};
     public:
         CSoundData() {};
-        CSoundData(FILE * fp, u32 file_data_offset, u32 size) : fp(fp), file_data_offset(file_data_offset), size(size) {}
+        CSoundData(FILE * fp, u32 file_data_offset, u32 size) : fp(fp), file_data_offset(file_data_offset), size(size) {
+            read(SoundStreamReadType::Overwrite);
+        }
 
         void read(enum SoundStreamReadType readtype) {
             if (readtype == SoundStreamReadType::Append && index < read_end_index) {
                 // Move the elements left in the buffer to the front of the buffer
-                memmove(&buf[0], &buf[index], (read_end_index - index) * sizeof(SOUND_BUF_TYPE));
+                memmove(buf, &buf[index], (read_end_index - index) * sizeof(SOUND_BUF_TYPE));
                 read_end_index -= index;
 
                 // Get the amount of free space after the non-read buffered data
@@ -35,13 +37,13 @@ class CSoundData : public Component<CSoundData> {
                 // Fill the remainder of the buffer
                 read_end_index += fread(&buf[read_end_index], sizeof(SOUND_BUF_TYPE), free_space, fp);
             } else if (readtype == SoundStreamReadType::Overwrite) {
-                read_end_index = fread(&buf[0], sizeof(SOUND_BUF_TYPE), size, fp);
+                read_end_index = fread(buf, sizeof(SOUND_BUF_TYPE), MAX_SOUND_BUF_SIZE, fp);
             } else {
                 FATAL("Invalid CSoundData::read!");
             }
 
             // Check 
-            if (read_end_index < size && feof(fp) != EOF) {
+            if (read_end_index < size && feof(fp) == EOF) {
                 ERROR("An error occured while reading sound data");
             } 
 

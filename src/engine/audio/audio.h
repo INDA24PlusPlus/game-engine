@@ -11,6 +11,7 @@
 #include "engine/audio/source/source.h"
 #include "engine/utils/logging.h"
 #include "engine/audio/listener/device.h"
+#include "engine/utils/timer.h"
 
 class CMAContext : public Component<CMAContext> {
     public:
@@ -19,7 +20,7 @@ class CMAContext : public Component<CMAContext> {
 
 class SAudioManager : public System<SAudioManager> {
     private:
-        Entity m_sources;
+        Entity m_sources = ECS::create_entity();
         u32 active_sources = 0;
     public:
         SAudioManager() {
@@ -29,6 +30,7 @@ class SAudioManager : public System<SAudioManager> {
 
         void add_source(CAudioSource source) {
             ECS::add_component(m_sources, source);
+            active_sources += 1;
         }
 
         void play_sources(SOUND_BUF_TYPE * output, CAudioDevice &device, u32 frame_count) {
@@ -53,19 +55,13 @@ static void data_callback(ma_device * pDevice, void * pOutput, const void * _, m
 
 class RAudio : public Resource<RAudio> {
     private:
-        Entity m_context;
-        Entity m_device;
+        Entity m_context = ECS::create_entity();
 
-        SAudioManager manager = SAudioManager();
+        CAudioDevice device;
+        SAudioManager * manager = ECS::register_system<SAudioManager>();
     public:
         RAudio() {
-            m_context = ECS::create_entity();
-            m_device = ECS::create_entity();
-
             ECS::register_component<CMAContext>();
-            ECS::register_component<CAudioSource>();
-            ECS::register_component<CAudioDevice>();
-
             ECS::add_component(m_context, CMAContext());
             auto &context = ECS::get_component<CMAContext>(m_context);
 
@@ -74,39 +70,35 @@ class RAudio : public Resource<RAudio> {
             }
 
             ma_device_info default_device = get_default_device(get_available_devices(&context.context));
-            ECS::add_component(m_device, CAudioDevice(&context.context, default_device, &data_callback));
+            device = CAudioDevice(&context.context, default_device, &data_callback);
         }
 
-        void set_device(ECS &ecs, ma_device_info device_info) {
+        void set_device(ma_device_info device_info) {
+            device.deinit();
+
             auto &context = ECS::get_component<CMAContext>(m_context);
-
-            // Handle old device
-            ECS::get_component<CAudioDevice>(m_device).deinit();
-            ECS::remove_component<CAudioDevice>(m_device);
-
-            ECS::add_component(m_device, CAudioDevice(&context.context, device_info, &data_callback));
+            device = CAudioDevice(&context.context, device_info, &data_callback);
         }
 
         void add_source(CAudioSource source) {
-            manager.add_source(source);
+            manager->add_source(source);
         }
 
         void play_audio_callback(SOUND_BUF_TYPE * output, u32 frame_count) {
-            CAudioDevice &device = ECS::get_component<CAudioDevice>(RAudio::m_device);
-
             if (!device.is_playing) {
                 return;
             }
 
-            manager.play_sources(output, device, frame_count);
+            manager->play_sources(output, device, frame_count);
         }
 };
 
-static void data_callback(ma_device * pDevice, void * pOutput, const void * _, ma_uint32 frame_count) {
-    DEBUG("Audio ID: {}", RAudio::get_id());
+static void data_callback(ma_device * _device, void * pOutput, const void * _input, ma_uint32 frame_count) {
+    start_timer();
     RAudio * audio = ECS::get_resource<RAudio>();
 
     if (audio != nullptr) {
         audio->play_audio_callback((SOUND_BUF_TYPE *) pOutput, frame_count);
     }
+    PRINT_EXECUTION("Audio: ");
 }

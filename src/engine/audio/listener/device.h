@@ -21,10 +21,8 @@ class CMADeviceInfo : public Component<CMADeviceInfo> {
 
 class CAudioDevice : public Component<CAudioDevice> {
     private:
-        Entity m_sources;
-        Entity m_listener;
-        Entity m_info;
-        Entity m_device;
+        Entity m_info = ECS::create_entity();
+        Entity m_device = ECS::create_entity();
 
     public:
         bool is_playing;
@@ -32,11 +30,6 @@ class CAudioDevice : public Component<CAudioDevice> {
         CAudioDevice() {};
         CAudioDevice(ma_context * context, ma_device_info info, ma_device_data_proc callback) {
             is_playing = true;
-
-            m_sources = ECS::create_entity();
-            m_listener = ECS::create_entity();
-            m_info = ECS::create_entity();
-            m_device = ECS::create_entity();
 
             ECS::register_component<CAudioSource>();
             ECS::register_component<CMADeviceInfo>();
