@@ -3,6 +3,9 @@
 #include "engine/ecs/system.hpp"
 #include "engine/network/client.hpp"
 #include "engine/utils/logging.h"
+#include "game/components.h"
+#include "game/enemy.h"
+#include "game/world_gen/definitions.h"
 #include "network.hpp"
 #include <cstdio>
 #include <cstdlib>
@@ -111,7 +114,7 @@ void SSendPositions::update(ECS &ecs) {
       client_position pos[NUM_PLAYERS];
     } message;
 
-    message.type = 1;
+    message.type = UPDATE_PLAYER_POSITION_MESSAGE;
 
     while (to_send->next(send_it, send)) {
       auto player_pos = ecs.get_component<CClient>(send);
@@ -141,7 +144,8 @@ void SSendPositions::update(ECS &ecs) {
 
 SAcceptClients::SAcceptClients() {
   queries[0] = Query(CClient::get_id());
-  query_count = 1;
+  queries[1] = Query(CEnemyGhost::get_id(), CTranslation::get_id());
+  query_count = 2;
 }
 
 void SAcceptClients::update(ECS &ecs) {
@@ -186,62 +190,90 @@ void SAcceptClients::update(ECS &ecs) {
   struct {
     new_player_id id;
     number_of_players num_players;
-    client_position pos[NUM_PLAYERS];
+    number_of_enemy num_enemy;
+    int buffer[NUM_PLAYERS + NUM_ENEMY];
   } init_message;
+  int buffer_offset = 0;
 
-  auto to_send = get_query(0)->get_entities();
-  Iterator send_it = {.next = 0};
-  Entity send_e;
+  auto players = get_query(0)->get_entities();
+  Iterator player_it = {.next = 0};
+  Entity player_e;
 
   // Find unique id
   DEBUG("Find unique id");
   bool unique = false;
   while (!unique) {
     unique = true;
-    while (to_send->next(send_it, send_e)) {
-      auto send_id = ecs.get_component<CClient>(send_e).id;
-      if (send_id == id) {
+    while (players->next(player_it, player_e)) {
+      auto player_id = ecs.get_component<CClient>(player_e).id;
+      if (player_id == id) {
         unique = false;
       }
     }
   }
 
-  printf("id: %d", id);
+  printf("id: %d\n", id);
   init_message.id = id;
   client.id = id;
-  send_it = {.next = 0};
+  player_it = {.next = 0};
   int i = 0;
 
   // Populate initial positions for other players
-  while (to_send->next(send_it, send_e)) {
-    auto player = ecs.get_component<CClient>(send_e);
-    init_message.pos[i].id = player.id;
-    init_message.pos[i].x = player.x;
-    init_message.pos[i].z = player.z;
-    init_message.pos[i].rot = player.rot;
+  while (players->next(player_it, player_e)) {
+    auto player = ecs.get_component<CClient>(player_e);
+    client_position *buffer_pos =
+        (client_position *)(&(init_message.buffer[0]) + buffer_offset);
+    buffer_pos->id = player.id;
+    buffer_pos->x = player.x;
+    buffer_pos->z = player.z;
+    buffer_pos->rot = player.rot;
+    buffer_offset += sizeof(client_position) / sizeof(int);
     i++;
   }
 
   init_message.num_players = i;
 
+  auto enemies = get_query(1)->get_entities();
+  Iterator enemy_it = {.next = 0};
+  Entity enemy_e;
+
+  i = 0;
+
+  // Populate initial positions for enemies
+  while (enemies->next(enemy_it, enemy_e)) {
+    auto enemy_id = ecs.get_component<CEnemyGhost>(enemy_e).id;
+    auto enemy = ecs.get_component<CTranslation>(enemy_e);
+    enemy_position *buffer_pos =
+        (enemy_position *)(&(init_message.buffer[0]) + buffer_offset);
+    buffer_pos->id = enemy_id;
+    buffer_pos->x = enemy.pos.x;
+    buffer_pos->y = enemy.pos.y;
+    buffer_pos->z = enemy.pos.z;
+    buffer_pos->rot = 0;
+    buffer_offset += sizeof(enemy_position) / sizeof(int);
+    i++;
+  }
+
+  init_message.num_enemy = i;
+
   if (send(client.socket, &init_message,
            sizeof(new_player_id) + sizeof(number_of_players) +
-               sizeof(client_position) * i,
+               sizeof(number_of_enemy) + buffer_offset * sizeof(int),
            0) < 0) {
     ERROR("failed to send state to client");
     exit(EXIT_FAILURE);
   }
 
-  send_it = {.next = 0};
-  while (to_send->next(send_it, send_e)) {
+  player_it = {.next = 0};
+  while (players->next(player_it, player_e)) {
     INFO("Inform about new player");
-    auto client = ecs.get_component<CClient>(send_e);
+    auto client = ecs.get_component<CClient>(player_e);
     struct {
       message_type type;
       client_position pos;
     } message;
 
-    message.type = 0;
+    message.type = ADD_PLAYER_MESSAGE;
     message.pos.id = id;
     message.pos.x = 0;
     message.pos.z = 0;
@@ -255,4 +287,59 @@ void SAcceptClients::update(ECS &ecs) {
   ecs.add_component(new_player, client);
 
   INFO("Client created");
+}
+
+SSendEnemyPositions::SSendEnemyPositions() {
+  queries[0] = Query(CClient::get_id());
+  queries[1] = Query(CEnemyGhost::get_id(), CTranslation::get_id());
+  query_count = 2;
+}
+
+void SSendEnemyPositions::update(ECS &ecs) {
+  auto server = ecs.get_resource<RServer>();
+  auto entities = get_query(0)->get_entities();
+  auto to_send = get_query(1)->get_entities();
+  Iterator it = {.next = 0};
+  Entity e;
+  while (entities->next(it, e)) {
+    auto client = ecs.get_component<CClient>(e);
+    Iterator send_it = {.next = 0};
+    Entity enemy;
+    int i = 0;
+
+    struct {
+      message_type type;
+      number_of_enemy num;
+      enemy_position pos[NUM_ENEMY];
+    } message;
+
+    message.type = UPDATE_ENEMY_POSITION_MESSAGE;
+
+    while (to_send->next(send_it, enemy)) {
+      auto enemy_id = ecs.get_component<CEnemyGhost>(enemy).id;
+      auto enemy_pos = ecs.get_component<CTranslation>(enemy);
+      message.pos[i].id = enemy_id;
+      message.pos[i].x = enemy_pos.pos.x;
+      message.pos[i].y = enemy_pos.pos.y;
+      message.pos[i].z = enemy_pos.pos.z;
+      // printf("(%f %f %f)\n", enemy_pos.pos.x, enemy_pos.pos.y,
+      // enemy_pos.pos.z);
+      i++;
+    }
+
+    if (i == 0) {
+      continue;
+    }
+
+    // printf("(%f %f %f)\n", message.pos[0].x, message.pos[0].y, message.pos[0].z);
+
+    message.num = i;
+
+    if (sendto(server->udp_handle, (const char *)&message,
+               2 * sizeof(int) + sizeof(enemy_position) * i, MSG_CONFIRM,
+               (const struct sockaddr *)&client.address,
+               sizeof(client.address)) < 0) {
+      ERROR("failed to send enemy pos");
+    }
+  }
 }

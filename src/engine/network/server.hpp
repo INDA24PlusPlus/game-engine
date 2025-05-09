@@ -10,7 +10,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define NUM_PLAYERS 2
+#define NUM_PLAYERS 8
+#define NUM_ENEMY 10
+
+#define ADD_PLAYER_MESSAGE 0
+#define UPDATE_PLAYER_POSITION_MESSAGE 1
+#define ADD_ENEMY_MESSAGE 2
+#define UPDATE_ENEMY_POSITION_MESSAGE 3
 
 class RServer : public Resource<RServer> {
 public:
@@ -45,5 +51,11 @@ public:
 class SAcceptClients : public System<SAcceptClients> {
 public:
   SAcceptClients();
+  void update(ECS &ecs);
+};
+
+class SSendEnemyPositions : public System<SSendEnemyPositions> {
+public:
+  SSendEnemyPositions();
   void update(ECS &ecs);
 };

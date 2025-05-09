@@ -3,6 +3,7 @@
 #include "engine/ecs/ecs.hpp"
 #include "engine/ecs/resource.hpp"
 #include "network.hpp"
+#include "server.hpp"
 #include <arpa/inet.h>
 #include <bits/stdc++.h>
 #include <netinet/in.h>

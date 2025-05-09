@@ -1,21 +1,9 @@
 #pragma once
 
 #include "engine/ecs/component.hpp"
+#include "engine/ecs/system.hpp"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
-
-struct Player {
-  glm::vec3 position;
-  glm::quat rotation;
-  glm::vec3 scale;
-  float health;
-  float speed;
-
-  Player();
-
-  void take_damage(float damage);
-  bool is_alive() const;
-};
 
 class CPlayer : public Component<CPlayer> {
 public:
@@ -42,4 +30,10 @@ public:
   }
 
   bool is_alive() { return health > 0.0f; }
+};
+
+class SPlayerController : public System<SPlayerController> {
+public:
+  SPlayerController();
+  void update(ECS &ecs);
 };

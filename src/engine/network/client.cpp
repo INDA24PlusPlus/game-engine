@@ -11,6 +11,8 @@
 #include "engine/network/server.hpp"
 #include "engine/scene/Node.h"
 #include "engine/utils/logging.h"
+#include "game/enemy.h"
+#include "game/state.h"
 #include "network.hpp"
 #include <cstdio>
 #include <cstdlib>
@@ -18,10 +20,6 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <thread>
-
-#include "game/state.h"
-#include <glad/glad.h>
 
 RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
                                        ECS &ecs) {
@@ -81,11 +79,17 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
   struct {
     new_player_id id;
     number_of_players num_players;
+    number_of_enemy num_enemy;
+    int buffer[1000];
   } init_message;
+  int buffer_offset = 0;
+  int init_length = 0;
 
   INFO("Aquiering game state");
-  if (recv(this->tcp_handle, (char *)&init_message,
-           sizeof(new_player_id) + sizeof(number_of_players), 0) < 0) {
+  init_length =
+      recv(this->tcp_handle, (char *)&init_message, sizeof(init_message), 0);
+
+  if (init_length < 0) {
     ERROR("failed to get initial state");
     exit(EXIT_FAILURE);
   }
@@ -93,26 +97,52 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
   this->player_id = init_message.id;
 
   INFO("Adding other players");
+  auto player_prefab = scene->m_scene.prefab_by_name("Player");
   for (int i = 0; i < init_message.num_players; i++) {
+    INFO("Add player");
 
-    client_position player;
-    recv(this->tcp_handle, (char *)&player, sizeof(client_position), 0);
+    client_position *player =
+        (client_position *)(&(init_message.buffer[0]) + buffer_offset);
     auto online_player = ecs.create_entity();
-    ecs.add_component<COnline>(online_player, COnline{.id = player.id});
-    auto pos = glm::vec3(player.x, 0, player.z);
+    ecs.add_component<COnline>(online_player, COnline{.id = player->id});
+    auto pos = glm::vec3(player->x, 0, player->z);
     ecs.add_component<CTranslation>(
         online_player, CTranslation{.pos = pos,
                                     .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
                                     .scale = glm::vec3(1)});
-    ecs.add_component<CVelocity>(online_player,
-                                 CVelocity{.vel = glm::vec3(0.0f)});
     ecs.add_component<CPlayer>(online_player, CPlayer());
-    ecs.add_component<CSpeed>(online_player, CSpeed());
     ecs.add_component<CHealth>(online_player, CHealth());
-    auto player_prefab = scene->m_scene.prefab_by_name("Player");
     engine::NodeHandle player_node = scene->m_hierarchy.instantiate_prefab(
         scene->m_scene, player_prefab, engine::NodeHandle(0));
     ecs.add_component<CMesh>(online_player, CMesh(player_node));
+    buffer_offset = sizeof(client_position) / sizeof(int);
+  }
+
+  INFO("Adding enemies");
+  auto ghost_prefab = scene->m_scene.prefab_by_name("Ghost");
+  for (int i = 0; i < init_message.num_enemy; i++) {
+    INFO("Add ghost");
+    enemy_position *enemy =
+        (enemy_position *)(&(init_message.buffer[0]) + buffer_offset);
+    Entity ghost = ecs.create_entity();
+    engine::NodeHandle ghost_node = scene->m_hierarchy.instantiate_prefab(
+        scene->m_scene, ghost_prefab, engine::NodeHandle(0));
+    DEBUG("Add CEnemyGhost");
+    printf("ghost id: %d\n", enemy->id);
+    ecs.add_component<CEnemyGhost>(
+        ghost, CEnemyGhost({.id = enemy->id, .cooldown = 0.0f}));
+    DEBUG("Add CHealth");
+    ecs.add_component<CHealth>(ghost, CHealth());
+    DEBUG("Add CTranslation");
+    ecs.add_component<CTranslation>(
+        ghost, CTranslation{
+                   .pos = glm::vec3(enemy->x, enemy->y, enemy->z),
+                   .rot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f),
+                   .scale = glm::vec3(1.0f),
+               });
+    DEBUG("Add CMesh");
+    ecs.add_component<CMesh>(ghost, CMesh(ghost_node));
+    buffer_offset = sizeof(enemy_position) / sizeof(int);
   }
 
   printf("id: %d\n", init_message.id);
@@ -120,12 +150,13 @@ RMultiplayerClient::RMultiplayerClient(char *server_address, char *server_port,
 
 SGetMessage::SGetMessage() {
   queries[0] = Query(COnline::get_id(), CTranslation::get_id());
-  query_count = 1;
+  queries[1] = Query(CEnemyGhost::get_id(), CTranslation::get_id());
+  query_count = 2;
 }
 
 void add_new_player(ECS &ecs, int *buffer) {
   auto scene = ecs.get_resource<RScene>();
-  client_position *pos = (client_position *)(buffer + 1);
+  client_position *pos = (client_position *)buffer;
 
   auto new_player = ecs.create_entity();
   ecs.add_component<COnline>(new_player, COnline{.id = pos->id});
@@ -145,13 +176,13 @@ void add_new_player(ECS &ecs, int *buffer) {
 }
 
 void get_position(ECS &ecs, int *buffer, EntityArray *entities) {
-  int num_players = buffer[1];
+  int num_players = buffer[0];
   Iterator it = {.next = 0};
   Entity e;
 
   for (int i = 0; i < num_players; i++) {
     client_position *pos =
-        (client_position *)(buffer + 2 +
+        (client_position *)(buffer + 1 +
                             i * (sizeof(client_position) / sizeof(int)));
 
     while (entities->next(it, e)) {
@@ -167,24 +198,58 @@ void get_position(ECS &ecs, int *buffer, EntityArray *entities) {
   }
 }
 
+void get_enemy_pos(ECS &ecs, int *buffer, EntityArray *entities) {
+  int num_enemy = buffer[0];
+  Iterator it = {.next = 0};
+  Entity e;
+
+  for (int i = 0; i < num_enemy; i++) {
+    enemy_position *pos =
+        (enemy_position *)(buffer + 1 +
+                           i * (sizeof(enemy_position) / sizeof(int)));
+
+    it = {.next = 0};
+    while (entities->next(it, e)) {
+      auto &translation = ecs.get_component<CTranslation>(e);
+      int id = ecs.get_component<CEnemyGhost>(e).id;
+
+      if (pos->id == id) {
+        // printf("%d: (%f %f %f)\n", id, pos->x, pos->y, pos->z);
+        translation.pos.x = pos->x;
+        translation.pos.y = pos->y;
+        translation.pos.z = pos->z;
+        // this->players[i].rot = buffer[i].rot;
+      }
+    }
+  }
+}
+
 void SGetMessage::update(ECS &ecs) {
-  int buffer[1000];
+  struct {
+    message_type type;
+    int buffer[1000];
+  } message;
   auto client = ecs.get_resource<RMultiplayerClient>();
-  while (recvfrom(client->udp_handle, (char *)&buffer, sizeof(buffer),
+  while (recvfrom(client->udp_handle, (char *)&message, sizeof(message),
                   MSG_WAITALL, nullptr, nullptr) > 0) {
-    switch (buffer[0]) {
-    case 0:
+    switch (message.type) {
+    case ADD_PLAYER_MESSAGE:
       DEBUG("New player");
-      add_new_player(ecs, buffer);
+      add_new_player(ecs, message.buffer);
       break;
-    case 1: {
+    case UPDATE_PLAYER_POSITION_MESSAGE: {
       auto entities = get_query(0)->get_entities();
-      get_position(ecs, buffer, entities);
+      get_position(ecs, message.buffer, entities);
+      break;
+    }
+    case UPDATE_ENEMY_POSITION_MESSAGE: {
+      auto entities = get_query(1)->get_entities();
+      get_enemy_pos(ecs, message.buffer, entities);
       break;
     }
     default:
       ERROR("Unknown message");
-      printf("%d", buffer[0]);
+      printf("%d", message.type);
     }
   }
 }
