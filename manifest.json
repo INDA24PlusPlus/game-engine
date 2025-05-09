@@ -2,11 +2,7 @@
     "meshes": [
         {
             "name": "Helmet",
-            "path": "assets/SciFiHelmet/glTF/SciFiHelmet.gltf"
-        },
-        {
-            "name": "Sponza",
-            "path": "assets/Sponza/Sponza.gltf"
+            "path": "assets/SciFiHelmet/SciFiHelmet.glb"
         },
         {
             "name": "Sword",
@@ -23,7 +19,6 @@
     ],
     "prefabs": [
         "prefabs/Player.json",
-        "prefabs/Scene.json",
         "prefabs/Ghost.json"
     ]
 }
