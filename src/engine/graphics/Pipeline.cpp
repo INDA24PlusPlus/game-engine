@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <array>
 
 #include "../utils/logging.h"
 

@@ -29,7 +29,7 @@ class CSoundData : public Component<CSoundData> {
             stream = std::make_shared<std::ifstream>(path, std::ios_base::binary);
             
             if (!stream->is_open() || !(*stream)) {
-                FATAL("Unable to open file: {}", path.c_str());
+                FATAL("Unable to open file: {}", path.string());
             }
 
             auto wav = WavFile(stream);
