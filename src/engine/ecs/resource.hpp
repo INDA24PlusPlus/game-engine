@@ -1,6 +1,7 @@
 #pragma  once
 #include "engine/utils/logging.h"
 #include "types.h"
+#include <cstdio>
 
 const u32 MAX_RESOURCES = 128;
 
