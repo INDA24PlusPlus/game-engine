@@ -1,0 +1,332 @@
+[
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/main.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/main.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/main.cpp",
+  "output": "CMakeFiles/game_server.dir/main.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/components.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/game/components.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/game/components.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/components.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/time.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/game/time.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/game/time.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/time.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/enemy.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/game/enemy.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/game/enemy.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/enemy.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/world_gen/map.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/game/world_gen/map.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/game/world_gen/map.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/game/world_gen/map.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/utils/logging.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/utils/logging.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/utils/logging.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/utils/logging.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/ecs.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/ecs.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/ecs.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/ecs.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entity.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entity.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entity.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entity.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/component.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/component.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/component.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/component.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/system.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/system.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/system.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/system.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entityarray.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entityarray.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entityarray.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/entityarray.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/utils.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/utils.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/utils.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/utils.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/resource.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/resource.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/resource.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/resource.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/signature.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/signature.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/signature.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/signature.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/systemmanager.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/systemmanager.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/systemmanager.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/ecs/systemmanager.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/AssetLoader.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/AssetLoader.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/AssetLoader.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/AssetLoader.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/Node.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/Node.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/Node.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/Node.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/AssetManifest.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/AssetManifest.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/AssetManifest.cpp",
+  "output": "CMakeFiles/game_server.dir/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/scene/AssetManifest.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/network.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/network.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/network.cpp",
+  "output": "CMakeFiles/game_server.dir/network.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/client.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/client.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/client.cpp",
+  "output": "CMakeFiles/game_server.dir/client.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/server.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/server.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/server.cpp",
+  "output": "CMakeFiles/game_server.dir/server.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/imgui_demo.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_demo.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_demo.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/imgui_demo.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/imgui_draw.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_draw.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_draw.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/imgui_draw.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/imgui_tables.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_tables.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_tables.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/imgui_tables.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/imgui_widgets.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_widgets.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui_widgets.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/imgui_widgets.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/imgui.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/imgui.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/imgui.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/backends/imgui_impl_glfw.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/backends/imgui_impl_glfw.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/backends/imgui_impl_glfw.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/backends/imgui_impl_glfw.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network",
+  "command": "/usr/bin/c++ -DENABLE_EDITOR=1 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../vendor/nlohmann -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../../game-engine -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/../../../src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/vendor/glad/include -std=gnu++23 -Wall -Wextra -Wunused-result -Wno-missing-field-initializers -Wno-unused-function -fno-exceptions -o CMakeFiles/game_server.dir/_deps/imgui-src/backends/imgui_impl_opengl3.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/backends/imgui_impl_opengl3.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/imgui-src/backends/imgui_impl_opengl3.cpp",
+  "output": "CMakeFiles/game_server.dir/_deps/imgui-src/backends/imgui_impl_opengl3.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-build/glm",
+  "command": "/usr/bin/c++  -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src -std=c++23 -o CMakeFiles/glm.dir/detail/glm.cpp.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src/glm/detail/glm.cpp",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glm-src/glm/detail/glm.cpp",
+  "output": "_deps/glm-build/glm/CMakeFiles/glm.dir/detail/glm.cpp.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/context.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/context.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/context.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/context.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/init.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/init.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/init.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/init.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/input.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/input.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/input.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/input.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/monitor.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/monitor.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/monitor.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/monitor.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/platform.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/platform.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/platform.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/platform.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/vulkan.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/vulkan.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/vulkan.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/vulkan.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/window.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/window.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/window.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/window.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/egl_context.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/egl_context.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/egl_context.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/egl_context.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/osmesa_context.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/osmesa_context.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/osmesa_context.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/osmesa_context.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/null_init.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_init.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_init.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/null_init.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/null_monitor.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_monitor.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_monitor.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/null_monitor.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/null_window.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_window.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_window.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/null_window.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/null_joystick.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_joystick.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/null_joystick.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/null_joystick.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/posix_module.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_module.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_module.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/posix_module.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/posix_time.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_time.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_time.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/posix_time.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/posix_thread.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_thread.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_thread.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/posix_thread.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/x11_init.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_init.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_init.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/x11_init.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/x11_monitor.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_monitor.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_monitor.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/x11_monitor.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/x11_window.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_window.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/x11_window.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/x11_window.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/xkb_unicode.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/xkb_unicode.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/xkb_unicode.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/xkb_unicode.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/glx_context.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/glx_context.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/glx_context.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/glx_context.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/wl_init.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_init.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_init.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/wl_init.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/wl_monitor.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_monitor.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_monitor.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/wl_monitor.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/wl_window.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_window.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/wl_window.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/wl_window.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/linux_joystick.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/linux_joystick.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/linux_joystick.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/linux_joystick.c.o"
+},
+{
+  "directory": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src",
+  "command": "/usr/bin/cc -DHAVE_MEMFD_CREATE -D_DEFAULT_SOURCE -D_GLFW_WAYLAND -D_GLFW_X11 -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/include -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src -I/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-build/src -std=c99 -fPIC -Wall -o CMakeFiles/glfw.dir/posix_poll.c.o -c /home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_poll.c",
+  "file": "/home/vekby/Documents/code/inda/proginda/game-engine/src/engine/network/_deps/glfw-src/src/posix_poll.c",
+  "output": "_deps/glfw-build/src/CMakeFiles/glfw.dir/posix_poll.c.o"
+}
+]
