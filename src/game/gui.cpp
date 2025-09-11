@@ -434,6 +434,11 @@ void gui::build(State& state) {
         }
     }
     ImGui::End();
+    
+    ImGui::Begin("Player Stats");
+    ImGui::InputFloat("Player Health", &state.player.health);
+    
+    ImGui::End();
 }
 
 void gui::render() {

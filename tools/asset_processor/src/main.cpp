@@ -16,12 +16,6 @@ void write_data(std::vector<T>& data, std::ofstream& stream, u32& num_bytes_writ
 
 using json = nlohmann::json;
 
-template <class... Args>
-void fatal(std::format_string<Args...> fmt, Args&&... args) {
-    ERROR(fmt, std::forward<Args>(args)...);
-    exit(1);
-}
-
 static void parse_prefabs(AssetImporter& importer, AssetManifest& manifest,
                           std::unordered_map<std::string, u32>& mesh_names_to_indices,
                           json& prefabs) {
@@ -35,23 +29,23 @@ static void parse_prefabs(AssetImporter& importer, AssetManifest& manifest,
 
         std::ifstream file(path);
         if (!file.is_open()) {
-            fatal("Failed to open prefab file {}", path);
+            FATAL("Failed to open prefab file {}", path);
         }
 
         json prefab = json::parse(file, nullptr, false);
         if (prefab.is_discarded()) {
-            fatal("Failed to parse json of prefab file {}", path);
+            FATAL("Failed to parse json of prefab file {}", path);
         }
 
         if (!prefab.contains("name")) {
-            fatal("Prefab {} has no name", path);
+            FATAL("Prefab {} has no name", path);
         }
 
         if (!prefab.contains("nodes")) {
-            fatal("Prefab {} has no nodes", path);
+            FATAL("Prefab {} has no nodes", path);
         }
         if (!prefab.contains("root")) {
-            fatal("Prefab {} has no specified root node", path);
+            FATAL("Prefab {} has no specified root node", path);
         }
         u32 root_node = prefab["root"];
 
@@ -74,7 +68,7 @@ static void parse_prefabs(AssetImporter& importer, AssetManifest& manifest,
             if (json_node.contains("mesh")) {
                 std::string mesh_name = json_node["mesh"];
                 if (mesh_names_to_indices.find(mesh_name) == mesh_names_to_indices.end()) {
-                    fatal(
+                    FATAL(
                         "Node {} in prefab {} specifies mesh name {} which is not declared in "
                         "manifest file",
                         node.name, path, mesh_name);

@@ -9,7 +9,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS  ON)
 set(SOURCE_FILES
     src/main.cpp
     src/AssetImporter.cpp
-    ../../src/engine/utils/logging.cpp
     ../../src/engine/scene/Node.cpp
     ../../src/engine/scene/AssetManifest.cpp
 )

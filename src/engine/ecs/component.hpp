@@ -87,7 +87,6 @@ class ComponentManager {
 
         template <typename T>
             void add_component(Entity entity, T component) {
-                const u32 component_id = T::get_id();
                 get_component_array<T>()->set_component(entity, component);
             }
 

@@ -13,7 +13,7 @@ class Query {
             signature = Signature();
             int i = 0;
             for (auto component_id : {component_ids...}) {
-                set_signature(signature, component_id);
+                signature = set_signature(signature, component_id);
             }
         }
         void add_entity(Entity entity) {
